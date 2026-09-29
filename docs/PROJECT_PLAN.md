@@ -222,11 +222,13 @@ For comparison, one developer building this without AI assistance would typicall
 
 ## 9. What I need from you before M0
 
-1. **Network access for this cloud environment.** The environment currently blocks `huggingface.co`, `kaggle.com`, `mvtec.com`, `roboflow.com` and `zenodo.org`, so datasets cannot be downloaded here. Add those domains in the environment's network settings. Otherwise, download the datasets yourself and train on Colab/Kaggle; the scripts will support both.
-2. **Dataset access.** Request access to Real-IAD and accept the MVTec license. If you want me to download gated data here, store a Hugging Face token in the environment settings as `HF_TOKEN` (never paste it in chat). A Roboflow API key would be `ROBOFLOW_API_KEY`.
-3. **A GPU for training.** Free Colab/Kaggle GPUs are enough. This environment has 4 CPUs, 15 GB RAM and no GPU. That is fine for PatchCore and CPU inference, but not for detector training.
-4. **Academic or commercial use?** Most of these datasets are **non-commercial (CC BY-NC-SA)**, and Ultralytics is AGPL. This is fine for an academic project; a commercial product needs different choices.
-5. **Copilot API key.** `ANTHROPIC_API_KEY` in the environment settings, if you want the live LLM copilot. Without it, the copilot runs in offline mode.
+Step-by-step instructions are in **[docs/SETUP.md](SETUP.md)**. In short:
+
+1. **Network access:** set the cloud environment's network access to **Full**, or **Custom** with the dataset domains listed in SETUP.md.
+2. **Dataset access:** request Real-IAD access on Hugging Face (approval is automatic), then store `HF_TOKEN`. Also store `ROBOFLOW_API_KEY`, and fill in the MVTec AD 2 download form.
+3. **GPU for training:** a free Colab or Kaggle GPU. This environment has 4 CPUs, 15 GB RAM and no GPU, which is fine for PatchCore and CPU inference but not for detector training.
+4. **Academic or commercial use?** Most of these datasets are **non-commercial (CC BY-NC-SA)**, and Ultralytics is AGPL.
+5. **Copilot API key (optional):** store it as `ZERODEFECT_ANTHROPIC_API_KEY`, not `ANTHROPIC_API_KEY`, which Claude Code itself reads. Without it, the copilot runs in offline mode.
 
 ---
 
@@ -244,7 +246,7 @@ For comparison, one developer building this without AI assistance would typicall
 ---
 
 ### Dataset references
-- Real-IAD paper: https://arxiv.org/abs/2403.12580 — anomalib datamodule: https://anomalib.readthedocs.io/en/latest/markdown/guides/reference/data/datamodules/image/realiad.html
+- Real-IAD paper: https://arxiv.org/abs/2403.12580 — download: https://huggingface.co/datasets/Real-IAD/Real-IAD — anomalib datamodule: https://anomalib.readthedocs.io/en/latest/markdown/guides/reference/data/datamodules/image/realiad.html
 - MVTec AD 2: https://arxiv.org/abs/2503.21622 — downloads: https://www.mvtec.com/company/research/datasets/mvtec-ad-2/downloads
 - PaintDefect (Roboflow Universe): https://universe.roboflow.com/ai-klghd/paintdefect-8h4s4
 - Tyre datasets: https://data.mendeley.com/datasets/bn7ch8tvyp , https://data.mendeley.com/datasets/32b5vfj6tc
