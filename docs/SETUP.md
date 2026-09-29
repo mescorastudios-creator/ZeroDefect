@@ -90,7 +90,7 @@ The training notebooks will be in `notebooks/`. You can use either Colab or Kagg
 
 ## 7. Academic or commercial?
 
-Reply with one word: **academic** or **commercial**.
+**Decided: academic.** The rest of this step is kept for reference.
 
 - **Academic:** we use the datasets and Ultralytics YOLO as planned.
 - **Commercial:** the model gets trained on your own collected images, and we use Apache-licensed components (e.g. RF-DETR) instead of AGPL/non-commercial ones.

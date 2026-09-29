@@ -227,7 +227,7 @@ Step-by-step instructions are in **[docs/SETUP.md](SETUP.md)**. In short:
 1. **Network access:** set the cloud environment's network access to **Full**, or **Custom** with the dataset domains listed in SETUP.md.
 2. **Dataset access:** request Real-IAD access on Hugging Face (approval is automatic), then store `HF_TOKEN`. Also store `ROBOFLOW_API_KEY`, and fill in the MVTec AD 2 download form.
 3. **GPU for training:** a free Colab or Kaggle GPU. This environment has 4 CPUs, 15 GB RAM and no GPU, which is fine for PatchCore and CPU inference but not for detector training.
-4. **Academic or commercial use?** Most of these datasets are **non-commercial (CC BY-NC-SA)**, and Ultralytics is AGPL.
+4. **Use: academic (decided).** The non-commercial datasets (CC BY-NC-SA) and Ultralytics YOLO (AGPL) are used as planned.
 5. **Copilot API key (optional):** store it as `ZERODEFECT_ANTHROPIC_API_KEY`, not `ANTHROPIC_API_KEY`, which Claude Code itself reads. Without it, the copilot runs in offline mode.
 
 ---
