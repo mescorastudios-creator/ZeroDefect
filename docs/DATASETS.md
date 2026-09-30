@@ -45,7 +45,7 @@ uv run python -m ml.datasets stats                         # counts per source/c
 - Labels missing from the taxonomy make conversion fail with the list of labels, so that no label is silently dropped.
 
 ### Demo (procedural)
-`demo` draws the 5 polymer part types with one defect of each class and a pixel mask, 5 views per part. It exists so the simulator, virtual camera, tests and CI work without downloads. **Never report metrics on it.**
+`demo` draws the 5 polymer part types with one defect of each class and a pixel mask, 5 views per part. Train split: 40 good parts (anomaly model) and 6 labelled parts per defect class (defect-type classifier); test split: 20 good + 4 per class, held out. It exists so the simulator, virtual camera, tests and CI work without downloads. **Never report metrics on it.**
 
 ## Unified format
 

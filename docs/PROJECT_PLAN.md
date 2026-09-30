@@ -223,7 +223,7 @@ For comparison, one developer building this without AI assistance would typicall
 | # | Status | Notes |
 |---|---|---|
 | M0 | ✅ Done (2026-09-30) | Taxonomy (`configs/taxonomy.yaml`), converters for all 4 sources into one manifest + COCO format ([DATASETS.md](DATASETS.md)), production simulator with 4 planted faults, and a virtual camera ([SIMULATOR.md](SIMULATOR.md)). There is also a procedural demo dataset, so everything runs offline, plus CI and 42 tests. MVTec AD is downloaded and verified. **Open:** the Real-IAD download is blocked until `HF_TOKEN` is fixed (see SETUP.md, step 1). |
-| M1 | Next | Needs Real-IAD `plastic_nut` for the first real demo; can start on MVTec AD `screw`/`metal_nut` meanwhile. |
+| M1 | Started | Working defect finding in the web app (`uv run python -m backend`): PatchCore anomaly model (ResNet-18, good parts only) + k-NN defect-type classifier + 2-of-5-view fusion, with heat maps, boxes and image upload. On the procedural demo parts it judges 98% of 240 held-out test parts correctly. Machine/operator/process data in the app is placeholder simulator data. Next: Real-IAD once `HF_TOKEN` works, alignment, ROI masks, severity, calibration. |
 
 ---
 

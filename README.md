@@ -12,15 +12,21 @@ See [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) for the full plan: datasets, ar
    - Windows (PowerShell): `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
    - macOS / Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 2. Get the code: `git clone` the repository, or download it from GitHub as a ZIP (Code → Download ZIP) and unzip it.
-3. In the project folder run:
+3. Open Terminal in the project folder (on a Mac: right-click the folder in Finder → *New Terminal at Folder*) and run:
    ```bash
    uv run python -m backend
    ```
-   The browser opens at http://127.0.0.1:8000. The first run needs internet: it downloads Python and the packages, then creates the demo part images (about a minute). After that it also works offline.
+   Leave the Terminal window open. When it prints `ZeroDefect is running at http://127.0.0.1:8000` the browser opens by itself.
+   The **first run takes about 2–3 minutes and needs internet**: it downloads Python and the packages (including PyTorch), creates the demo part images and trains the defect-finding model. Later starts take about 15 seconds and work offline.
 
-Screens: **Live inspection** (parts streaming from the line, PASS/FAIL, 5 camera views, alerts), **Dashboard**, **Factory map** (machine health, click a machine for its history) and **Traceability** (search by part ID, resin lot or operator). The line runs 5× faster than real time; change it with `--speed 10`. Stop with Ctrl+C.
+Screens:
+- **Live inspection**: parts arrive every 1.5 s and the AI model inspects all 5 camera views of each one: PASS/FAIL, defect type, confidence, heat map and boxes. Each result is checked against the dataset label, and the held-out test accuracy is shown.
+- **Inspect an image**: upload an image (or try a random test part) and the model inspects it.
+- **Dashboard**, **Factory map**, **Traceability**: the analytics screens. Their production data (machines, operators, resin lots, process values) is **placeholder data** from the plant simulator; opening a part in Traceability runs the real model on its images.
 
-Production data is simulated, and PASS/FAIL comes from the dataset labels until the AI model is connected (milestone M1).
+Options: `--interval 3` (slower live line), `--port 8080` (if port 8000 is taken). Stop with Ctrl+C.
+
+**"Safari can't connect to the server"**: the server is not running. Check the Terminal window: it must show `ZeroDefect is running at …` and stay open. If it shows `command not found: uv`, close and reopen Terminal after installing uv. If it shows an error, copy the error message when asking for help.
 
 ## Quick start (development)
 
