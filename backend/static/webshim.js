@@ -73,8 +73,12 @@
     return y.add(skip).relu();
   }
   const features = bmps => tf.tidy(() => {  // -> [B, 28, 28, 384]
-    let x = tf.stack(bmps.map(b => tf.image.resizeBilinear(tf.browser.fromPixels(b).toFloat(), [SIZE, SIZE], false, true)
-      .round().div(255).sub(MEAN).div(STD)));
+    let x = tf.stack(bmps.map(b => {  // same steps as inspection.patchcore.prepare
+      let im = tf.browser.fromPixels(b).toFloat();
+      const k = Math.floor(Math.min(b.width, b.height) / SIZE);
+      if (k >= 2) im = tf.avgPool(im.slice([0, 0, 0], [Math.floor(b.height / k) * k, Math.floor(b.width / k) * k, 3]), k, k, "valid");
+      return tf.image.resizeBilinear(im, [SIZE, SIZE], false, true).round().div(255).sub(MEAN).div(STD);
+    }));
     x = tf.maxPool(tf.pad(conv(x, "conv1", 2, 3), [[0, 0], [1, 1], [1, 1], [0, 0]]), 3, 2, "valid");
     x = block(block(x, "layer1.0", 1), "layer1.1", 1);
     const f2 = block(block(x, "layer2.0", 2), "layer2.1", 1);
@@ -313,10 +317,10 @@
   };
 
   /* Check the browser against the Python model: inspect every shipped test part. */
-  window.__zdSelfTest = async (n = Infinity, step = 1) => {
+  window.__zdSelfTest = async (n = Infinity, step = 1, start = 0) => {
     await ready;
     const out = [];
-    for (let s = 0; s < D.samples.length && out.length < n; s += step) {
+    for (let s = start; s < D.samples.length && out.length < n; s += step) {
       const res = await inspectViews(D.samples[s].part_type, await Promise.all(BLOBS[s].map(b => createImageBitmap(b))));
       out.push({ id: D.samples[s].id, defect: res.defect, cls: res.cls, score: res.score, view_scores: res.views.map(v => v.score), ms: res.ms });
     }

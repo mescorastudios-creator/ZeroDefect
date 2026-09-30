@@ -44,6 +44,26 @@ def _clean(v):
     return v.item() if isinstance(v, np.generic) else v
 
 
+def name_labels() -> dict[str, str]:
+    """Words that name a label in an image file name -> taxonomy class, "good" or "defect" (type unknown).
+
+    Only used to show the file name's label next to the AI result; the AI never sees it.
+    """
+    tax = load_taxonomy()
+    words = {
+        w: "defect" for w in ("defect", "defective", "bad", "ng", "nok", "fail", "def", "anomaly", "damaged")
+    }
+    words |= {w: GOOD for w in ("good", "ok", "normal", "pass", "okay")}
+    for c in tax.classes:
+        words[c.key] = c.key
+        words |= {sub: c.key for sub in c.subtypes}
+    for source in tax.sources:
+        for label, m in tax.source_labels(source).items():
+            if len(label) > 2:  # Real-IAD codes are read from the _NG_<code>_ pattern instead
+                words[label] = m.zd_class or GOOD
+    return words
+
+
 def _result(res: dict, ms: float) -> dict:
     keys = ("defect", "cls", "confidence", "score", "threshold", "flagged_views")
     return {**{k: res[k] for k in keys if k in res}, "ms": round(ms)}
@@ -241,6 +261,7 @@ def create_app(plant: Plant) -> FastAPI:
                 for line, m in plant.cfg.machines
             },
             "part_types": sorted(plant.inspector.models),
+            "name_labels": name_labels(),
         }
 
     @app.get("/api/model")

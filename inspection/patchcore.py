@@ -10,6 +10,7 @@ Runs on a CPU: ResNet-18 features at 224 px.
 import base64
 import logging
 import math
+import zlib
 from pathlib import Path
 
 import cv2
@@ -34,6 +35,18 @@ _MEAN = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
 _STD = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
 
 
+def prepare(im: np.ndarray) -> np.ndarray:
+    """BGR image -> RGB float SIZE x SIZE. Large images are first averaged over k x k pixel blocks
+    (k = whole-number downscale factor) so thin defects survive; the browser does the same steps."""
+    x = im.astype(np.float32)
+    k = min(im.shape[:2]) // SIZE
+    if k >= 2:
+        h, w = im.shape[0] // k * k, im.shape[1] // k * k
+        x = x[:h, :w].reshape(h // k, k, w // k, k, 3).mean((1, 3))
+    x = np.round(cv2.resize(x, (SIZE, SIZE), interpolation=cv2.INTER_LINEAR))
+    return cv2.cvtColor(x, cv2.COLOR_BGR2RGB)
+
+
 class Backbone:
     """ImageNet ResNet-18 layer2 + layer3 features, averaged over 3x3 neighbourhoods -> (B, 384, 28, 28)."""
 
@@ -46,11 +59,8 @@ class Backbone:
     def __call__(self, images: list[np.ndarray]) -> torch.Tensor:
         out = []
         for i in range(0, len(images), 32):
-            batch = [
-                cv2.cvtColor(cv2.resize(im, (SIZE, SIZE), interpolation=cv2.INTER_LINEAR), cv2.COLOR_BGR2RGB)
-                for im in images[i : i + 32]
-            ]
-            x = torch.from_numpy(np.stack(batch)).permute(0, 3, 1, 2).float().div(255).sub(_MEAN).div(_STD)
+            batch = [prepare(im) for im in images[i : i + 32]]
+            x = torch.from_numpy(np.stack(batch)).permute(0, 3, 1, 2).div(255).sub(_MEAN).div(_STD)
             f2 = self.layer2(self.stem(x))
             f3 = F.interpolate(self.layer3(f2), size=f2.shape[-2:], mode="bilinear", align_corners=False)
             out.append(F.avg_pool2d(torch.cat([f2, f3], 1), 3, 1, 1))
@@ -222,6 +232,12 @@ def _read(relpath: str) -> np.ndarray:
     return img
 
 
+def calibration_half(test: pd.DataFrame) -> pd.Series:
+    """Defective test samples set aside (deterministically, by sample id) to calibrate a dataset
+    that has no labelled defects in its train split; the rest stays held out for evaluation."""
+    return (test.label == "defect") & test.sample_id.map(lambda s: zlib.crc32(s.encode()) % 2 == 0)
+
+
 class Inspector:
     """One PartModel per part type, plus part-level (multi-view) decisions."""
 
@@ -229,29 +245,31 @@ class Inspector:
         self.models, self.backbone = models, backbone
 
     @classmethod
-    def load_or_fit(cls, source: str, model_dir: Path, seed: int = 0) -> "Inspector":
+    def load_or_fit(cls, sources, model_dir: Path, seed: int = 0) -> "Inspector":
+        """Load the model of every part type in the given dataset sources, training missing ones."""
         backbone = Backbone()
-        manifest = load_manifests([source])
         models = {}
-        for cat, df in manifest.groupby("category"):
-            path = model_dir / f"{source}_{cat}.pt"
-            if path.exists():
-                models[cat] = PartModel.load(path)
-                continue
-            log.warning("training the defect model for %s (first run only)", cat)
-            train = df[df.split == "train"]
-            good = [_read(p) for p in train[train.label == "good"].image_path]
-            defects = [
-                (_read(p), c)
-                for p, c in train[train.label == "defect"][["image_path", "zd_class"]].itertuples(index=False)
-            ]
-            if not good or not defects:
-                raise ValueError(f"{source}/{cat}: need good and labelled defect images in the train split")
-            model = PartModel.fit(backbone, good, defects, np.random.default_rng(seed))
-            inspector = cls({cat: model}, backbone)
-            model.metrics = inspector.evaluate(cat, df[df.split == "test"])
-            model.save(path)
-            models[cat] = model
+        for source in [sources] if isinstance(sources, str) else sources:
+            for cat, df in load_manifests([source]).groupby("category"):
+                path = model_dir / f"{source}_{cat}.pt"
+                if path.exists():
+                    models[cat] = PartModel.load(path)
+                    continue
+                log.warning("training the defect model for %s (first run only)", cat)
+                train, test = df[df.split == "train"], df[df.split == "test"]
+                calib = train[train.label == "defect"]
+                if calib.empty:  # e.g. MVTec AD: labelled defects only in test -> calibrate on half of them
+                    calib, test = test[calibration_half(test)], test[~calibration_half(test)]
+                good = [_read(p) for p in train[train.label == "good"].image_path]
+                defects = [
+                    (_read(p), c) for p, c in calib[["image_path", "zd_class"]].itertuples(index=False)
+                ]
+                if not good or not defects:
+                    raise ValueError(f"{source}/{cat}: need good images and labelled defect images")
+                model = PartModel.fit(backbone, good, defects, np.random.default_rng(seed))
+                model.metrics = cls({cat: model}, backbone).evaluate(cat, test)
+                model.save(path)
+                models[cat] = model
         return cls(models, backbone)
 
     def inspect_part(self, part_type: str, images: list[np.ndarray]) -> dict:

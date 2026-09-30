@@ -21,14 +21,19 @@ import torch
 from fastapi.testclient import TestClient
 
 from backend.app import PARAMS, Plant, create_app
-from inspection.patchcore import MIN_VIEWS, Inspector
+from inspection.patchcore import MIN_VIEWS, Inspector, calibration_half
 from inspection.paths import REPO_ROOT, data_root
 from ml.datasets import demo
 from ml.datasets.common import load_manifests, resolve
 
 STATIC = Path(__file__).parent / "static"
 TFJS = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"
-GOOD_PER_TYPE, DEFECT_PER_CLASS = 8, 2  # demo test parts shipped with the page
+SHIPPED = {
+    "demo": (8, 2),
+    "mvtec_ad": (4, 1),
+}  # held-out test parts shipped with the page: good, per defect class
+# MVTec AD screw: image AUROC 0.87 at 224 px, most defects missed; it needs a higher-resolution model first.
+LEFT_OUT = {"screw"}
 N_RECORDS, N_LIVE = 3000, 600  # placeholder production records
 RECORD_COLS = [
     "part_id",
@@ -80,14 +85,17 @@ def export_backbone(inspector: Inspector) -> tuple[bytes, dict]:
     return _f16(np.concatenate(parts)), spec
 
 
-def pick_samples(manifest) -> list[dict]:
-    test = manifest[manifest.split == "test"]
+def pick_samples(manifest, part_types) -> list[dict]:
+    test = manifest[(manifest.split == "test") & manifest.category.isin(part_types)]
+    has_train_defects = set(manifest[(manifest.split == "train") & (manifest.label == "defect")].source)
+    test = test[test.source.isin(has_train_defects) | ~calibration_half(test)]  # only never-seen parts
     chosen = []
-    for pt, df in test.groupby("category"):
+    for (source, pt), df in test.groupby(["source", "category"]):
+        n_good, n_defect = SHIPPED[source]
         per_sample = df.groupby("sample_id").zd_class.first()
-        ids = list(per_sample[per_sample.isna()].index[:GOOD_PER_TYPE])
+        ids = list(per_sample[per_sample.isna()].index[:n_good])
         for _, g in per_sample.dropna().groupby(per_sample.dropna()):
-            ids += list(g.index[:DEFECT_PER_CLASS])
+            ids += list(g.index[:n_defect])
         for sid in ids:
             views = df[df.sample_id == sid].sort_values("view")
             label = views.zd_class.dropna()
@@ -97,7 +105,9 @@ def pick_samples(manifest) -> list[dict]:
                     "part_type": pt,
                     "label": label.iloc[0] if len(label) else None,
                     "paths": list(views.image_path),
-                    "views": list(views.view),
+                    "views": [
+                        v if isinstance(v, str) else None for v in views.view
+                    ],  # MVTec: one unnamed view
                 }
             )
     return chosen
@@ -129,11 +139,13 @@ def main(argv=None) -> None:
     args = p.parse_args(argv)
     out = args.out
 
-    manifest = load_manifests(["demo"])
-    if not ((manifest.split == "train") & (manifest.label == "defect")).any():
+    demo_manifest = load_manifests(["demo"])
+    if not ((demo_manifest.split == "train") & (demo_manifest.label == "defect")).any():
         demo.generate()
-        manifest = load_manifests(["demo"])
-    inspector = Inspector.load_or_fit("demo", data_root() / "models")
+    sources = ["demo"] + (["mvtec_ad"] if not load_manifests(["mvtec_ad"]).empty else [])
+    manifest = load_manifests(sources)
+    inspector = Inspector.load_or_fit(sources, data_root() / "models")
+    inspector.models = {k: m for k, m in inspector.models.items() if k not in LEFT_OUT}
     (out / "model").mkdir(parents=True, exist_ok=True)
     (out / "data").mkdir(parents=True, exist_ok=True)
 
@@ -144,12 +156,16 @@ def main(argv=None) -> None:
         _write_b64(out / f"model/{pt}.txt", _f16(m.bank.numpy()) + _f16(m.class_vecs.numpy()))
         parts[pt] = {"threshold": m.threshold, "bank": len(m.bank), "labels": m.class_labels}
 
-    samples = pick_samples(manifest)
-    blob = bytearray()  # the original JPEG bytes of every view, back to back
+    samples = pick_samples(manifest, inspector.models)
+    blob = bytearray()  # JPEG bytes of every view, back to back (PNG sources re-encoded as JPEG)
     for s in samples:
         views = []
         for view, path in zip(s["views"], s.pop("paths"), strict=True):
             data = resolve(path).read_bytes()
+            if path.endswith(".png"):
+                data = cv2.imencode(".jpg", cv2.imread(str(resolve(path))), [cv2.IMWRITE_JPEG_QUALITY, 90])[
+                    1
+                ].tobytes()
             views.append({"view": view, "off": len(blob), "len": len(data)})
             blob += data
         s["views"] = views
@@ -189,7 +205,9 @@ def main(argv=None) -> None:
         "records": rows(plant.frame().tail(N_RECORDS)),
         "live": rows(live.assign(true_class=None)),
     }
-    (out / "data/demo.json").write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
+    (out / "data/demo.json").write_text(
+        json.dumps(data, separators=(",", ":"), allow_nan=False), encoding="utf-8"
+    )
 
     # Reference results from the Python model, to check the browser gives the same answers.
     expected = []
