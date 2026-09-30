@@ -1,0 +1,114 @@
+# ZeroDefect unified defect taxonomy for polymer parts.
+#
+# Single source of truth: the dataset converters, inspection engine, simulator,
+# backend and UI all read this file. Class ids are also the COCO category ids,
+# so never renumber an existing class; append new ones instead.
+#
+# Sub-types are only set from a source label when the label itself names the
+# sub-type (e.g. PaintDefect "dent"). Geometric sub-types such as scratch
+# depth or edge-vs-surface are derived by the inspection engine (M1).
+
+version: 1
+
+severity_levels: [minor, major, critical]   # ordered low -> high
+
+classes:
+  - id: 1
+    key: scratch
+    name: Scratch
+    subtypes: [light, deep, edge, surface]
+    default_severity: minor
+    color: "#56B4E9"
+  - id: 2
+    key: crack
+    name: Crack / breakage
+    subtypes: [hairline, through, edge]
+    default_severity: critical
+    color: "#D55E00"
+  - id: 3
+    key: deformation
+    name: Dent / deformation / warpage
+    subtypes: [dent, bump, warp]
+    default_severity: major
+    color: "#E69F00"
+  - id: 4
+    key: pit_void
+    name: Pit / void / sink mark
+    subtypes: [pit, void, sink]
+    default_severity: major
+    color: "#CC79A7"
+  - id: 5
+    key: missing_material
+    name: Missing material (short shot)
+    subtypes: [missing_feature, missing_hole]
+    default_severity: critical
+    color: "#F0E442"
+  - id: 6
+    key: contamination
+    name: Contamination / foreign material
+    subtypes: [black_speck, dust, fibre, foreign_body]
+    default_severity: minor
+    color: "#009E73"
+  - id: 7
+    key: discoloration
+    name: Discoloration / burn mark
+    subtypes: [discoloration, burn, flow_line]
+    default_severity: minor
+    color: "#0072B2"
+  - id: 8
+    key: unknown
+    name: Unknown
+    subtypes: []
+    default_severity: major   # conservative until an engineer labels the cluster
+    color: "#9E9E9E"
+
+# Source label -> ZeroDefect class. A value is "good", a class key, or
+# {class: <key>, subtype: <subtype>}. Lookup is case-insensitive.
+sources:
+  realiad:
+    OK: good
+    AK: {class: pit_void, subtype: pit}               # pit
+    BX: deformation                                   # deformation
+    CH: scratch                                       # abrasion
+    HS: scratch                                       # scratch
+    PS: crack                                         # damage
+    QS: missing_material                              # missing parts
+    YW: {class: contamination, subtype: foreign_body} # foreign object
+    ZW: contamination                                 # contamination
+
+  paintdefect:
+    scratch: scratch
+    dent: {class: deformation, subtype: dent}
+    bump: {class: deformation, subtype: bump}
+    dust: {class: contamination, subtype: dust}
+    fibre: {class: contamination, subtype: fibre}
+    fiber: {class: contamination, subtype: fibre}
+
+  mvtec_ad:
+    good: good
+    # screw
+    manipulated_front: deformation
+    scratch_head: scratch
+    scratch_neck: scratch
+    thread_side: crack
+    thread_top: crack
+    # metal_nut
+    bent: deformation
+    color: discoloration
+    flip: unknown        # part mounted upside down: an orientation fault, not a material defect
+    scratch: scratch
+
+  mvtec_ad2:
+    good: good
+    bad: unknown         # public test labels are binary; defect type is not given
+
+  # Procedural demo dataset (ml/datasets/demo.py) uses the class keys directly.
+  demo:
+    good: good
+    scratch: scratch
+    crack: crack
+    deformation: deformation
+    pit_void: pit_void
+    missing_material: missing_material
+    contamination: contamination
+    discoloration: discoloration
