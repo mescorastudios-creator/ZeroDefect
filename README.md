@@ -48,8 +48,17 @@ Real datasets (access and keys: [docs/SETUP.md](docs/SETUP.md)):
 
 ```bash
 uv run python -m ml.datasets download realiad --convert    # needs HF_TOKEN
+uv run python -m ml.datasets download paintdefect --convert  # needs ROBOFLOW_API_KEY
 uv run python -m ml.datasets download mvtec_ad --convert
 uv run python -m simulator run --images realiad
+```
+
+Defect detector (M2, [docs/DETECTOR.md](docs/DETECTOR.md)); GPU training runs in [`notebooks/train_detector.ipynb`](notebooks/train_detector.ipynb):
+
+```bash
+uv sync --group train                                       # Ultralytics YOLO + ONNX
+uv run python -m ml.detector build --sources realiad paintdefect --name polymer
+uv run python -m ml.detector train --data polymer --model yolo26n.pt --imgsz 512 --device cpu --time 1
 ```
 
 ## Layout
@@ -59,9 +68,11 @@ uv run python -m simulator run --images realiad
 | `configs/` | Defect taxonomy and plant configuration (single sources of truth) | M0 |
 | `inspection/` | Taxonomy loader; inspection pipeline stages | M0, M1 |
 | `ml/datasets/` | Dataset download + conversion into one format, procedural demo set | M0 |
+| `ml/detector/` | YOLO defect detector: dataset builder, training, evaluation, ONNX export | M2 |
 | `simulator/` | Production-line simulator with planted faults, virtual camera | M0 |
 | `backend/` | Web app: FastAPI backend + UI (first version; M3/M4 extend it) | M3, M4 |
-| `frontend/`, `deploy/`, `notebooks/` | React UI, deployment, GPU training | M2–M7 |
-| `docs/` | [Plan](docs/PROJECT_PLAN.md), [setup](docs/SETUP.md), [datasets](docs/DATASETS.md), [simulator](docs/SIMULATOR.md) | |
+| `notebooks/` | Colab/Kaggle GPU training ([detector](notebooks/train_detector.ipynb)) | M2 |
+| `frontend/`, `deploy/` | React UI, deployment | M4–M7 |
+| `docs/` | [Plan](docs/PROJECT_PLAN.md), [setup](docs/SETUP.md), [datasets](docs/DATASETS.md), [simulator](docs/SIMULATOR.md), [detector](docs/DETECTOR.md) | |
 
 Environment variables: `HF_TOKEN` (Real-IAD), `ROBOFLOW_API_KEY` (PaintDefect), `ZERODEFECT_ANTHROPIC_API_KEY` (copilot), `ZERODEFECT_DATA_ROOT` (data folder, default `./data`).

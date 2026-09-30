@@ -108,6 +108,8 @@ def convert(version: int | None = None) -> list[Path]:
         for im in coco["images"]:
             img = root / folder / im["file_name"]
             image_id = f"{SOURCE}/{CATEGORY}/{split}/{Path(im['file_name']).stem}"
+            # Roboflow names augmented copies "<original>.rf.<hash>.jpg"; the copies are one physical part.
+            original = im["file_name"].split(".rf.", 1)[0]
             insts = []
             for a in by_image.get(im["id"], []):
                 label = names[a["category_id"]]
@@ -138,7 +140,7 @@ def convert(version: int | None = None) -> list[Path]:
                     zd_class=main and main.zd_class,
                     zd_subtype=main and main.subtype,
                     source_label=main and main.source_label,
-                    sample_id=image_id,
+                    sample_id=f"{SOURCE}/{CATEGORY}/{split}/{original}",
                     width=im.get("width"),
                     height=im.get("height"),
                 )

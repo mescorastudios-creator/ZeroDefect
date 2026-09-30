@@ -46,7 +46,7 @@ classes:
   - id: 6
     key: contamination
     name: Contamination / foreign material
-    subtypes: [black_speck, dust, fibre, foreign_body]
+    subtypes: [black_speck, dust, fibre, foreign_body, oil_mark]
     default_severity: minor
     color: "#009E73"
   - id: 7
@@ -61,6 +61,12 @@ classes:
     subtypes: []
     default_severity: major   # conservative until an engineer labels the cluster
     color: "#9E9E9E"
+  - id: 9
+    key: paint_finish
+    name: Paint finish (sag / orange peel)
+    subtypes: [sag, orange_peel]
+    default_severity: minor   # cosmetic, but a visible class-A surface usually needs rework
+    color: "#9467BD"
 
 # Source label -> ZeroDefect class. A value is "good", a class key, or
 # {class: <key>, subtype: <subtype>}. Lookup is case-insensitive.
@@ -83,6 +89,9 @@ sources:
     dust: {class: contamination, subtype: dust}
     fibre: {class: contamination, subtype: fibre}
     fiber: {class: contamination, subtype: fibre}
+    oilmark: {class: contamination, subtype: oil_mark}
+    sagging: {class: paint_finish, subtype: sag}      # paint run on a vertical surface
+    opeel: {class: paint_finish, subtype: orange_peel}
 
   mvtec_ad:
     good: good

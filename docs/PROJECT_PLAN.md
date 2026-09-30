@@ -51,6 +51,7 @@ Every source label is mapped to one project taxonomy. Each type has sub-types an
 | Missing material (short shot) | missing feature, missing hole | Real-IAD `QS` |
 | Contamination / foreign material | black speck, dust, fibre, foreign body | Real-IAD `YW`, `ZW`; PaintDefect `dust`, `fibre` |
 | Discoloration / burn mark | discoloration, burn, flow line | synthetic + future datasets |
+| Paint finish | sag, orange peel | PaintDefect `sagging`, `opeel` |
 | **Unknown** | — | anomaly model fires but no known class → sent to clustering |
 
 ### 2.4 Traceability data (simulated, and we say so openly)
@@ -222,8 +223,9 @@ For comparison, one developer building this without AI assistance would typicall
 
 | # | Status | Notes |
 |---|---|---|
-| M0 | ✅ Done (2026-09-30) | Taxonomy (`configs/taxonomy.yaml`), converters for all 4 sources into one manifest + COCO format ([DATASETS.md](DATASETS.md)), production simulator with 4 planted faults, and a virtual camera ([SIMULATOR.md](SIMULATOR.md)). There is also a procedural demo dataset, so everything runs offline, plus CI and 42 tests. MVTec AD is downloaded and verified. **Open:** the Real-IAD download is blocked until `HF_TOKEN` is fixed (see SETUP.md, step 1). |
+| M0 | ✅ Done (2026-09-30) | Taxonomy (`configs/taxonomy.yaml`), converters for all 4 sources into one manifest + COCO format ([DATASETS.md](DATASETS.md)), production simulator with 4 planted faults, and a virtual camera ([SIMULATOR.md](SIMULATOR.md)). There is also a procedural demo dataset, so everything runs offline, plus CI and 42 tests. MVTec AD is downloaded and verified. Real-IAD (5 polymer classes, 512 px) and PaintDefect were downloaded and converted on 2026-09-30, once `HF_TOKEN` and `ROBOFLOW_API_KEY` worked. |
 | M1 | Started | Working defect finding in the web app (`uv run python -m backend`): PatchCore anomaly model (ResNet-18, good parts only) + k-NN defect-type classifier + 2-of-5-view fusion, with heat maps, boxes and image upload. On the procedural demo parts it judges 98% of 240 held-out test parts correctly. Machine/operator/process data in the app is placeholder simulator data. Next: Real-IAD once `HF_TOKEN` works, alignment, ROI masks, severity, calibration. |
+| M2 | Started (2026-09-30) | YOLO detector pipeline ([DETECTOR.md](DETECTOR.md)): dataset builder (splits per physical part, detector test set inside the official test set), training, evaluation (mAP, per-class P/R/F1, false-reject and escape rates per image and per part) and ONNX export (NMS-free, 19 ms per view on CPU), plus a Colab/Kaggle notebook. Added the `paint_finish` class for PaintDefect's `sagging`. Next: the GPU run (you), synthetic defects, augmentation for lighting, the ablation harness, and plugging the detector into the app next to PatchCore. |
 
 ---
 

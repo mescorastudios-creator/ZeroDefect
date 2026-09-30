@@ -16,8 +16,9 @@ def test_classes_match_plan():
         "contamination",
         "discoloration",
         "unknown",
+        "paint_finish",
     )
-    assert [c.id for c in tax.classes] == list(range(1, 9))
+    assert [c.id for c in tax.classes] == list(range(1, 10))
     assert tax.severity_levels == ("minor", "major", "critical")
 
 
@@ -31,6 +32,7 @@ def test_classes_match_plan():
         ("realiad", "YW", "contamination", "foreign_body"),
         ("paintdefect", "Dent", "deformation", "dent"),
         ("paintdefect", "fiber", "contamination", "fibre"),
+        ("paintdefect", "sagging", "paint_finish", "sag"),
         ("mvtec_ad", "color", "discoloration", None),
         ("mvtec_ad2", "bad", "unknown", None),
     ],

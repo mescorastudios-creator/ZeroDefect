@@ -28,6 +28,13 @@ dev = [
     "pytest>=8.2",
     "ruff>=0.6",
 ]
+# Defect detector training (M2): uv sync --group train. Ultralytics is AGPL-3.0 (academic use).
+train = [
+    "onnx>=1.17",
+    "onnxruntime>=1.20",
+    "onnxslim>=0.1.82",
+    "ultralytics>=8.4",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -45,6 +52,11 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.uv]
+# Ultralytics asks for the GUI build of OpenCV; the headless build (already a dependency) provides
+# the same cv2 module, and installing both breaks it. A marker that never matches drops the GUI build.
+override-dependencies = ["opencv-python; sys_platform == 'never'"]
 
 # CPU-only PyTorch on Linux (the default Linux wheels pull ~2 GB of CUDA libraries).
 [tool.uv.sources]

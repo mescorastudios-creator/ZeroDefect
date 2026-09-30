@@ -10,6 +10,11 @@ __pycache__/
 /data/
 /outputs/
 
+# Model weights (Ultralytics downloads pretrained weights into the working directory)
+*.pt
+*.onnx
+/runs/
+
 # Local secrets
 .env
 

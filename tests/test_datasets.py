@@ -159,6 +159,28 @@ def test_paintdefect_convert(data_root):
     assert cats == [1, 6, 6]
 
 
+def test_paintdefect_augmented_copies_are_one_part(data_root):
+    folder = data_root / "raw/paintdefect/v2/train"
+    names = ["p_jpg.rf.aaa.jpg", "p_jpg.rf.bbb.jpg", "q_jpg.rf.ccc.jpg"]
+    for n in names:
+        write_image(folder / n)
+    coco = {
+        "categories": [{"id": 1, "name": "sagging"}],
+        "images": [{"id": i, "file_name": n, "width": 32, "height": 32} for i, n in enumerate(names)],
+        "annotations": [{"id": 0, "image_id": 0, "category_id": 1, "bbox": [1, 1, 5, 5]}],
+    }
+    (folder / "_annotations.coco.json").write_text(json.dumps(coco))
+    paintdefect.convert()
+    df = load_manifests().set_index("image_id")
+    parts = df["sample_id"].str.rsplit("/", n=1).str[-1]
+    assert parts.to_dict() == {
+        "paintdefect/painted_panel/train/p_jpg.rf.aaa": "p_jpg",
+        "paintdefect/painted_panel/train/p_jpg.rf.bbb": "p_jpg",
+        "paintdefect/painted_panel/train/q_jpg.rf.ccc": "q_jpg",
+    }
+    assert df.loc["paintdefect/painted_panel/train/p_jpg.rf.aaa"].zd_class == "paint_finish"
+
+
 def test_paintdefect_unmapped_label_fails(data_root):
     folder = data_root / "raw/paintdefect/v1/train"
     write_image(folder / "a.jpg")

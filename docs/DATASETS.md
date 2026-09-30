@@ -15,10 +15,10 @@ uv run python -m ml.datasets stats                         # counts per source/c
 
 | Source | Classes | Status |
 |---|---|---|
-| Real-IAD | `plastic_nut`, `plastic_plug`, `end_cap`, `u_block`, `mounts` | Code ready; fixture-tested. **Download blocked:** the `HF_TOKEN` in the environment is rejected by Hugging Face. |
-| MVTec AD | `screw`, `metal_nut` | Downloaded and converted. Counts match the published dataset (screw 320 train / 160 test, metal_nut 220 / 115). |
-| MVTec AD 2 | `wallplugs` | Code ready; fixture-tested. Not downloaded yet (needed from M2). |
-| PaintDefect | `painted_panel` | Code ready; fixture-tested. Needs `ROBOFLOW_API_KEY` (from M2). |
+| Real-IAD | `plastic_nut`, `plastic_plug`, `end_cap`, `u_block`, `mounts` | Downloaded (512 px) and converted: 25,055 images (5 views per part), 7,736 defect regions from the masks. |
+| MVTec AD | `screw`, `metal_nut` | Downloaded and converted in an earlier session. Counts match the published dataset (screw 320 train / 160 test, metal_nut 220 / 115). |
+| MVTec AD 2 | `wallplugs` | Code ready; fixture-tested. Not downloaded yet (needed for the lighting ablation). |
+| PaintDefect | `painted_panel` | Downloaded (version 2) and converted: 1,533 images, 1,219 boxes. |
 | Demo (procedural) | the 5 Real-IAD polymer part types | Generated locally. Not training data. |
 
 ## Sources
@@ -28,6 +28,8 @@ uv run python -m ml.datasets stats                         # counts per source/c
 - **Access:** gated on Hugging Face (`Real-IAD/Real-IAD`). Accept the terms, then set `HF_TOKEN`. License CC BY-NC-SA 4.0, research use.
 - **Download:** `download realiad [--resolution 256|512|1024|raw] [--classes ...]`. The dataset ships pre-resized copies, so nothing is resized during conversion. Default 512 px (about 2.3 GB for the 5 polymer classes). Use 1024 px for detector training on a GPU (about 8.8 GB). Zips are deleted after extraction unless `--keep-archives`.
 - **Split:** the official `realiad_jsons/realiad_jsons/<class>.json` (multi-view setting). If it is missing, the converter falls back to a deterministic split: 80/20 train/test for good samples, all defective samples in test.
+- **Views of defective parts:** a defect is usually visible in only some of the 5 views. The split file labels the other views of a defective part `OK` (about half of all `NG/` images), so they are converted as good images; the part is still defective through its other views.
+- **Counts (512 px):** per class about 1,250 good training images, and 3,750 test images of which 1,200–2,200 show a defect. Median defect box: 6% of the image side (about 33 px at 512 px).
 - **Layout:** `realiad_<res>/<class>/OK/S0001/...jpg`, `NG/<code>/S0001/...jpg` with a same-stem `.png` mask.
 
 ### MVTec AD (nut/bolt extension)
@@ -41,7 +43,9 @@ uv run python -m ml.datasets stats                         # counts per source/c
 
 ### PaintDefect (supervised defect types, painted plastic)
 - **Download:** `download paintdefect [--version N]`. Uses the Roboflow REST API with `ROBOFLOW_API_KEY` and fetches the COCO export (latest version by default). License CC BY 4.0: academic and commercial use allowed, with credit to the dataset authors.
-- **Converted:** one category, `painted_panel`. Boxes are kept as they are. The image-level class is the image's most frequent defect class, and all boxes go into `coco.json`.
+- **Version 2** (Jan 2026): 1,533 images at 640×360; train 1,341, val 128, test 64. Boxes: `sagging` 458, `bump` 190, `dust` 190, `dent` 155, `scratch` 117, `fibre` 109. The project also lists `oilmark` and `opeel` (orange peel), but no box uses them.
+- **Augmented copies:** Roboflow stored 3 augmented copies of every train image (`<original>.rf.<hash>.jpg`). The copies share a `sample_id`, so they count as one part. No original appears in more than one split (checked).
+- **Converted:** one category, `painted_panel`. Boxes are kept as they are. The image-level class is the image's most frequent defect class, and all boxes go into `coco.json`. Images without boxes (574 train, 52 val, 26 test) are good.
 - Labels missing from the taxonomy make conversion fail with the list of labels, so that no label is silently dropped.
 
 ### Demo (procedural)
@@ -65,7 +69,7 @@ Each converted `<source>/<category>` gets `data/processed/<source>/<category>/`:
   | `sample_id`, `view` | physical part and camera view. The views of one part share a `sample_id`. |
   | `width`, `height`, `extra` | image size, source-specific extras |
 
-- **`coco.json`**: COCO instances for detector training. Category ids are the taxonomy class ids (`scratch`=1 … `unknown`=8). Instances come from source boxes (PaintDefect) or from mask regions. Regions closer than 5 px count as one defect, and specks under 4 px are dropped. Image records carry `split`, `label`, `sample_id` and `view`.
+- **`coco.json`**: COCO instances for detector training. Category ids are the taxonomy class ids (`scratch`=1 … `paint_finish`=9). Instances come from source boxes (PaintDefect) or from mask regions. Regions closer than 5 px count as one defect, and specks under 4 px are dropped. Image records carry `split`, `label`, `sample_id` and `view`.
 
 `ml.datasets.common.load_manifests()` loads every manifest into one DataFrame.
 
@@ -83,5 +87,8 @@ Each converted `<source>/<category>` gets `data/processed/<source>/<category>/`:
 | contamination (6) | `YW`, `ZW` | dust, fibre | | |
 | discoloration (7) | | | color | |
 | unknown (8) | | | flip (orientation fault) | bad (untyped) |
+| paint_finish (9) | | sagging, opeel | | |
+
+`paint_finish` (paint runs/sags and orange peel) was added for PaintDefect's largest class, `sagging`: it is a paint-application defect, not a moulding one, so folding it into `deformation` would have hidden it. `oilmark` maps to `contamination` (sub-type `oil_mark`).
 
 Sub-types are only set when the source label names one (`AK`→pit, dent/bump, dust/fibre, `YW`→foreign_body). Geometric sub-types, such as scratch depth or edge vs surface, are derived by the inspection engine in M1.
