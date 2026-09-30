@@ -6,6 +6,10 @@ A software-only inspection system: it detects, classifies and traces defects on 
 
 See [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) for the full plan: datasets, architecture, UI, milestones and time estimate.
 
+## Try it without installing anything
+
+The web version runs the same defect-detection model inside the browser (TensorFlow.js), so it needs no install: it is published as a Claude artifact. Rebuild it with `uv run python -m backend.export_web` (writes `outputs/showcase.html` plus the model and data files next to it).
+
 ## Run the web app
 
 1. Install [uv](https://docs.astral.sh/uv/) (it installs Python for you):

@@ -20,11 +20,16 @@
   --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 }
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme="dark"]) {
     color-scheme: light;
     --bg: #eef1f3; --panel: #ffffff; --panel-2: #f5f7f8; --line: #d6dce0;
     --fg: #14191c; --muted: #53606a; --faint: #8d989f; --accent: #2a78d6; --accent-soft: rgba(42, 120, 214, .14);
   }
+}
+:root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #eef1f3; --panel: #ffffff; --panel-2: #f5f7f8; --line: #d6dce0;
+    --fg: #14191c; --muted: #53606a; --faint: #8d989f; --accent: #2a78d6; --accent-soft: rgba(42, 120, 214, .14);
 }
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
   margin: 0; padding-inline: 16px; padding-block: 0 40px; }

@@ -25,7 +25,7 @@ from ml.datasets.common import instances_from_mask, load_manifests, resolve
 log = logging.getLogger(__name__)
 
 SIZE = 224
-BANK_SIZE = 10_000  # ponytail: random coreset; greedy k-center if rare normal patches cause false alarms
+BANK_SIZE = 4000  # memory bank patches per part type (small enough to run in a browser)
 TOP_PATCHES = 8
 K_NEIGHBOURS = 5
 MIN_VIEWS = 2  # a part fails when at least this many camera views show a defect (multi-view consistency)
@@ -47,7 +47,7 @@ class Backbone:
         out = []
         for i in range(0, len(images), 32):
             batch = [
-                cv2.cvtColor(cv2.resize(im, (SIZE, SIZE), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2RGB)
+                cv2.cvtColor(cv2.resize(im, (SIZE, SIZE), interpolation=cv2.INTER_LINEAR), cv2.COLOR_BGR2RGB)
                 for im in images[i : i + 32]
             ]
             x = torch.from_numpy(np.stack(batch)).permute(0, 3, 1, 2).float().div(255).sub(_MEAN).div(_STD)
@@ -55,6 +55,23 @@ class Backbone:
             f3 = F.interpolate(self.layer3(f2), size=f2.shape[-2:], mode="bilinear", align_corners=False)
             out.append(F.avg_pool2d(torch.cat([f2, f3], 1), 3, 1, 1))
         return torch.cat(out)
+
+
+def _coreset(patches: torch.Tensor, n: int, rng: np.random.Generator) -> torch.Tensor:
+    """Greedy k-center coreset (PatchCore): n patches that cover all normal patches, rare ones included.
+
+    Runs on a random projection of up to 10n candidate patches to stay fast.
+    """
+    if len(patches) <= n:
+        return patches
+    cand = patches[torch.from_numpy(rng.choice(len(patches), min(len(patches), 10 * n), replace=False))]
+    proj = cand @ torch.from_numpy(rng.standard_normal((cand.shape[1], 128)).astype(np.float32))
+    sel = [int(rng.integers(len(cand)))]
+    dist = ((proj - proj[sel[0]]) ** 2).sum(1)
+    for _ in range(n - 1):
+        sel.append(int(dist.argmax()))
+        dist = torch.minimum(dist, ((proj - proj[sel[-1]]) ** 2).sum(1))
+    return cand[sel].clone()
 
 
 def _best_threshold(neg: np.ndarray, pos: np.ndarray) -> float:
@@ -161,8 +178,7 @@ class PartModel:
         n_cal = max(1, len(good) // 5)  # held-out good images to set the threshold
         cal, train = [good[i] for i in idx[:n_cal]], [good[i] for i in idx[n_cal:]]
         patches = backbone(train).permute(0, 2, 3, 1).reshape(-1, 384)
-        keep = torch.from_numpy(rng.choice(len(patches), min(BANK_SIZE, len(patches)), replace=False))
-        model = cls(patches[keep].clone(), math.inf, None, None)
+        model = cls(_coreset(patches, BANK_SIZE, rng), math.inf, None, None)
 
         def scores(images):
             feats = backbone(images)

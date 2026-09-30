@@ -52,7 +52,14 @@ def _result(res: dict, ms: float) -> dict:
 class Plant:
     """Placeholder production history up to now, then a live line where the model inspects every part."""
 
-    def __init__(self, images=("demo",), history_days: int = 7, interval: float = 1.5, inspector=None):
+    def __init__(
+        self,
+        images=("demo",),
+        history_days: int = 7,
+        interval: float = 1.5,
+        inspector=None,
+        start_line: bool = True,
+    ):
         self.cfg = load_config()
         self.pool = ImagePool.from_sources(images)
         self.samples = sorted(self.pool.views)
@@ -71,11 +78,13 @@ class Plant:
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._line, daemon=True)
-        self._thread.start()
+        if start_line:
+            self._thread.start()
 
     def close(self) -> None:
         self._stop.set()
-        self._thread.join(timeout=30)
+        if self._thread.is_alive():
+            self._thread.join(timeout=30)
 
     def _line(self) -> None:
         """The live camera: next part, inspect all its views, publish, repeat."""
@@ -97,7 +106,7 @@ class Plant:
                 self._pending.append(rec)
                 self.seq += 1
                 self.events.append((self.seq, event))
-            time.sleep(max(0.0, self.interval - (time.monotonic() - t0)))
+            self._stop.wait(max(0.0, self.interval - (time.monotonic() - t0)))
 
     def inspect(self, rec: dict) -> dict:
         """Run the model on all camera views of a part (cached for recent parts)."""
