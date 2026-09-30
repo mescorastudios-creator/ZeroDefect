@@ -1,7 +1,9 @@
 """Procedural demo dataset in the unified format.
 
 Simple drawings of the five Real-IAD polymer part types, 5 views per part,
-with one drawn defect per defective part and a pixel mask. It is NOT training
+with one drawn defect per defective part and a pixel mask. The train split has
+good parts (for the anomaly model) and labelled defects (for the defect-type
+classifier); the test split is held out for evaluation. It is NOT training
 data: it exists so the simulator, virtual camera, tests and CI run without
 downloading anything. Written to ``data/processed/demo/<part_type>``.
 """
@@ -153,8 +155,9 @@ def generate(
     part_types=PART_TYPES,
     size: int = 256,
     views: int = 5,
-    train_good: int = 20,
-    test_good: int = 10,
+    train_good: int = 40,
+    train_per_defect: int = 6,
+    test_good: int = 20,
     test_per_defect: int = 4,
     seed: int = 0,
 ) -> list[Path]:
@@ -162,7 +165,10 @@ def generate(
     for ti, pt in enumerate(part_types):
         rng = np.random.default_rng([seed, ti])
         out = processed_dir(SOURCE, pt)
-        plan = [("train", None)] * train_good + [("test", None)] * test_good
+        plan = [("train", None)] * train_good + [
+            ("train", d) for d in DEFECTS for _ in range(train_per_defect)
+        ]
+        plan += [("test", None)] * test_good
         plan += [("test", d) for d in DEFECTS for _ in range(test_per_defect)]
         samples = []
         for sid, (split, kind) in enumerate(plan, start=1):

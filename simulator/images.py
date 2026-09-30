@@ -27,6 +27,7 @@ class ImagePool:
         for (category, sample_id), cls in per_sample.items():
             groups.setdefault((category, cls), []).append(sample_id)
         self._groups = {k: np.array(sorted(v)) for k, v in groups.items()}
+        self.sample_class = {sid: cls for (_, sid), cls in per_sample.items()}
         self.views = {
             sid: g.sort_values("view", na_position="first")[["view", "image_path", "mask_path"]].to_dict(
                 "records"

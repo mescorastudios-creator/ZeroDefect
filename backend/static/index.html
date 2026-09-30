@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: control-room app. Header with screen tabs; each screen is one view: live bay, dashboard, factory map, traceability. Dark first. */
+/* Layout: control-room app. Header with screen tabs; each screen is one view. Dark first. */
 :root {
   color-scheme: dark;
   --bg: #0f1315; --panel: #171c1f; --panel-2: #1e2428; --line: #2b3338;
@@ -32,12 +32,19 @@ body { background: var(--bg); color: var(--fg); font-family: var(--font-body); f
 .wrap > *, .view { min-width: 0; }
 .view { display: grid; gap: 20px; }
 h2, h3 { margin: 0; text-wrap: balance; }
+h3 { font-size: 16px; }
+p { margin: 0; }
 .num, dd, td, .kpi b, .bv, .stat b { font-variant-numeric: tabular-nums; }
 button, input, select { font: inherit; color: var(--fg); background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; }
 button { cursor: pointer; }
 button:hover { border-color: var(--accent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 [hidden] { display: none !important; }
+.muted { color: var(--muted); font-weight: 400; }
+.chip { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; padding: 2px 8px; border-radius: 4px;
+  border: 1px dashed var(--muted); color: var(--muted); white-space: nowrap; }
+.chip.ai { border: 1px solid var(--accent); color: var(--fg); background: var(--accent-soft); }
+.note { font-size: 14px; color: var(--muted); border-left: 3px solid var(--warning); padding: 8px 12px; background: var(--panel); border-radius: 0 6px 6px 0; }
 
 /* header */
 .top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; padding-block: 14px; border-bottom: 1px solid var(--line); }
@@ -47,37 +54,44 @@ nav { display: flex; flex-wrap: wrap; gap: 4px; }
 nav a { color: var(--muted); text-decoration: none; padding: 6px 12px; border-radius: 6px; font-weight: 500; }
 nav a:hover { color: var(--fg); }
 nav a.on { color: var(--fg); background: var(--panel-2); box-shadow: inset 0 -2px 0 var(--accent); }
-.count { display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 5px; border-radius: 9px; font-size: 12px;
-  background: var(--critical); color: var(--on-status); text-align: center; }
-.clock { margin-left: auto; display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
-.clock b { color: var(--fg); font-weight: 500; }
+.count { display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 5px; border-radius: 9px; font-size: 12px; background: var(--critical); color: var(--on-status); text-align: center; }
+.status-bar { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
 .dot.off { background: var(--critical); }
 
-/* live bay */
-.bay { display: grid; grid-template-columns: minmax(0, 68vh) minmax(0, 1fr); gap: 20px; }
-.stage { display: grid; gap: 8px; align-content: start; }
-.frame { position: relative; aspect-ratio: 1; max-width: 100%; background: #000; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.frame.small { border-radius: 6px; }
-.stage .frame { width: min(100%, 68vh); }
-.scroll td:not(.res) { white-space: nowrap; }
-.cam { position: absolute; left: 10px; top: 10px; font-family: var(--font-mono); font-size: 12px; color: #fff; background: rgba(0, 0, 0, .55); padding: 3px 8px; border-radius: 4px; }
-.box { position: absolute; border: 2px solid var(--c); border-radius: 3px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .5); }
+/* frames with heat map and boxes */
+.frame { position: relative; max-width: 100%; background: #000; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.frame > img { width: 100%; display: block; }
+.frame .heat { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.no-heat .heat { display: none; }
+.cam { position: absolute; left: 10px; top: 10px; font-family: var(--font-mono); font-size: 12px; color: #fff; background: rgba(0, 0, 0, .6); padding: 3px 8px; border-radius: 4px; }
+.box { position: absolute; border: 2px solid var(--c); border-radius: 3px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .6); }
 .box span { position: absolute; left: -2px; bottom: calc(100% + 4px); white-space: nowrap; font-size: 12px; font-weight: 600;
   background: var(--panel); color: var(--fg); border-left: 4px solid var(--c); padding: 2px 8px; border-radius: 3px; }
-.frame.small .box span { display: none; }
-.views { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
-.views button { padding: 3px 10px; font-family: var(--font-mono); font-size: 13px; }
-.views button.on { border-color: var(--accent); background: var(--accent-soft); }
+.frame.small { border-radius: 6px; }
+.frame.small .box span, .frame.small .cam { display: none; }
+.empty { aspect-ratio: 1; display: grid; place-items: center; color: var(--muted); font-size: 14px; }
+
+/* live bay */
+.bay { display: grid; grid-template-columns: minmax(0, 66vh) minmax(0, 1fr); gap: 20px; }
+.stage { display: grid; gap: 8px; align-content: start; }
+.controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
+.controls button { padding: 3px 10px; font-family: var(--font-mono); font-size: 13px; }
+.controls button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--fg); }
+.controls button.flag::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--critical); }
+.controls label { margin-left: auto; display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .badge { font-family: var(--font-display); font-size: 60px; font-weight: 700; letter-spacing: .08em; line-height: 1; text-align: center;
   padding: 12px 10px; border-radius: 6px; color: var(--on-status); background: var(--good); }
 .badge.fail { background: var(--critical); }
-.finding { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 28px; font-weight: 600; }
+.badge.wait { background: var(--panel-2); color: var(--muted); }
+.finding { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 28px; font-weight: 600; font-size: 17px; }
 .swatch { width: 12px; height: 12px; border-radius: 2px; background: var(--c); }
 .sev { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--s); }
-.muted { color: var(--muted); font-weight: 400; }
+.facts { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+.check { font-size: 14px; padding: 8px 12px; border-radius: 6px; background: var(--panel-2); border-left: 4px solid var(--good); }
+.check.bad { border-left-color: var(--critical); }
 dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 16px; margin: 0; }
 dt { color: var(--muted); font-size: 13px; }
 dd { margin: 0; font-family: var(--font-mono); font-size: 14px; overflow-wrap: anywhere; }
@@ -87,8 +101,8 @@ td { padding: 6px 8px 6px 0; border-top: 1px solid var(--line); font-family: var
 td.txt { font-family: var(--font-body); }
 td.r, th.r { text-align: right; }
 td.off { color: var(--serious); }
-.counters { display: flex; flex-wrap: wrap; gap: 16px; font-size: 14px; color: var(--muted); align-items: center; }
-.counters b { color: var(--fg); }
+.session { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; color: var(--muted); align-items: center; }
+.session b { color: var(--fg); }
 .ribbon { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; min-height: 100px; }
 .thumb { flex: 0 0 auto; width: 76px; padding: 0; border-radius: 6px; overflow: hidden; background: var(--panel); display: grid; }
 .thumb img { width: 76px; height: 76px; object-fit: cover; display: block; }
@@ -98,13 +112,18 @@ td.off { color: var(--serious); }
 .alerts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .alerts li { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; padding: 10px 12px; border-radius: 6px; background: var(--panel-2); border-left: 4px solid var(--critical); }
 .alerts li b { font-family: var(--font-mono); }
-.alerts li span { grid-column: 2; font-size: 14px; }
 .alerts .none { border-left-color: var(--good); color: var(--muted); display: block; }
+
+/* inspect an image */
+.drop { display: grid; place-items: center; gap: 8px; text-align: center; padding: 28px 16px; border: 2px dashed var(--line); border-radius: 8px; cursor: pointer; color: var(--muted); }
+.drop.over, .drop:hover { border-color: var(--accent); color: var(--fg); }
+.drop input { display: none; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
 /* dashboard */
 .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; }
 .head h2 { font-family: var(--font-display); font-size: 30px; font-weight: 500; letter-spacing: .02em; }
-.head p { margin: 0; color: var(--muted); }
+.head p { color: var(--muted); }
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 2px; }
 .kpi span { color: var(--muted); font-size: 13px; }
@@ -114,7 +133,7 @@ figure { margin: 0; background: var(--panel); border: 1px solid var(--line); bor
 figure.wide { grid-column: 1 / -1; }
 figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: start; }
 figcaption h3 { font-size: 15px; font-weight: 600; }
-figcaption p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+figcaption p { margin-top: 2px; font-size: 13px; color: var(--muted); }
 .bars { display: grid; gap: 6px; }
 .bar { display: grid; grid-template-columns: minmax(0, 11em) minmax(0, 1fr) 4.5em; align-items: center; gap: 10px; font-size: 13px; }
 .bar .bl { color: var(--muted); overflow-wrap: anywhere; }
@@ -143,13 +162,14 @@ svg .ref { stroke: var(--muted); stroke-dasharray: 4 4; }
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .stat { display: grid; font-size: 12px; color: var(--muted); }
 .stat b { font-size: 16px; color: var(--fg); font-weight: 500; font-family: var(--font-mono); }
-.machine ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--fg); display: grid; gap: 2px; }
+.machine ul { margin: 0; padding-left: 18px; font-size: 13px; display: grid; gap: 2px; }
 
 /* traceability */
 .search { display: flex; flex-wrap: wrap; gap: 8px; }
 .search input { flex: 1 1 260px; min-width: 0; }
-.trace { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
-.scroll { overflow: auto; max-height: 640px; }
+.trace { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.scroll { overflow: auto; max-height: 680px; }
+.scroll td:not(.res) { white-space: nowrap; }
 tbody tr { cursor: pointer; }
 tbody tr:hover td { background: var(--panel-2); }
 tr.sel td { background: var(--accent-soft); }
@@ -163,7 +183,7 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
   .bay, .grid, .trace { grid-template-columns: minmax(0, 1fr); }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .line-row { grid-template-columns: minmax(0, 1fr); }
-  .clock { margin-left: 0; }
+  .status-bar { margin-left: 0; }
 }
 </style>
 </head>
@@ -173,96 +193,136 @@ footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line)
     <div class="brand">ZERO<span>DEFECT</span></div>
     <nav>
       <a href="#live" data-v="live">Live inspection</a>
+      <a href="#inspect" data-v="inspect">Inspect an image</a>
       <a href="#dash" data-v="dash">Dashboard</a>
       <a href="#map" data-v="map">Factory map<span class="count" id="n-alarm" hidden></span></a>
       <a href="#trace" data-v="trace">Traceability</a>
     </nav>
-    <div class="clock"><i class="dot" id="conn"></i><span>Line time <b id="clock">--:--:--</b></span><span id="speed"></span></div>
+    <div class="status-bar"><i class="dot" id="conn"></i><span class="chip ai">AI model: PatchCore · ResNet-18</span></div>
   </header>
 
   <!-- Live inspection -->
   <section id="v-live" class="view" aria-label="Live inspection">
     <div class="bay">
       <div class="stage">
-        <div class="frame" id="frame"><img id="shot" alt="Inspected part"><div id="boxes"></div><div class="cam" id="cam">Waiting for parts…</div></div>
-        <div class="views" id="views"></div>
+        <div class="frame" id="shot"><div class="empty">Waiting for the first part…</div></div>
+        <div class="controls"><span id="views"></span>
+          <label><input type="checkbox" id="heat-toggle" checked> Heat map</label></div>
       </div>
       <aside class="panel">
-        <div class="badge" id="badge">—</div>
+        <div class="panel-head"><h3>AI inspection result</h3><span class="chip ai">Real model</span></div>
+        <div class="badge wait" id="badge">…</div>
         <div class="finding" id="finding"></div>
-        <dl>
-          <dt>Part ID</dt><dd id="f-id"></dd>
-          <dt>Part</dt><dd id="f-part"></dd>
-          <dt>Machine</dt><dd id="f-machine"></dd>
-          <dt>Operator</dt><dd id="f-operator"></dd>
-          <dt>Resin lot</dt><dd id="f-lot"></dd>
-        </dl>
-        <table>
-          <thead><tr><th>Process</th><th>Actual</th><th class="r">vs set point</th></tr></thead>
-          <tbody id="params"></tbody>
-        </table>
-        <div class="counters">
-          <span>Inspected <b id="n-ins">0</b></span><span>Rejected <b id="n-rej">0</b></span><span>Yield <b id="n-yield">–</b></span>
+        <div class="facts" id="facts"></div>
+        <div class="check" id="check" hidden></div>
+        <dl><dt>Part ID</dt><dd id="f-id">–</dd><dt>Part type</dt><dd id="f-type">–</dd></dl>
+        <div class="session">
+          <span>Inspected <b id="n-ins">0</b></span><span>Rejected <b id="n-rej">0</b></span>
+          <span>AI agrees with label <b id="n-agree">–</b></span><span>Defect type correct <b id="n-type">–</b></span>
           <button id="follow" type="button" hidden>Back to live</button>
         </div>
       </aside>
     </div>
     <div class="ribbon" id="ribbon" aria-label="Latest parts"></div>
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-head"><h3>Production context</h3><span class="chip">Placeholder data</span></div>
+        <p class="muted" style="font-size:13px">Simulated machine, operator and process values. Real line data (MES/PLC) will replace these.</p>
+        <dl id="context"></dl>
+        <table><thead><tr><th>Process</th><th>Actual</th><th class="r">vs set point</th></tr></thead><tbody id="params"></tbody></table>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Model accuracy on held-out test parts</h3><span class="chip ai">Measured</span></div>
+        <p id="model-summary" class="muted"></p>
+        <table><thead><tr><th>Part type</th><th class="r">Parts</th><th class="r">Correct</th><th class="r">Defects found</th><th class="r">Good rejected</th><th class="r">Type correct</th></tr></thead>
+          <tbody id="model-table"></tbody></table>
+        <p class="muted" style="font-size:13px">Test parts were never seen in training. Method: PatchCore learns good parts only and flags regions that don't match; a nearest-neighbour classifier names the defect type. A part fails when at least <span id="min-views">2</span> camera views show a defect.</p>
+      </div>
+    </div>
     <div class="panel">
-      <h3>Active alerts</h3>
+      <div class="panel-head"><h3>Machine alerts</h3><span class="chip">Placeholder data</span></div>
       <ul class="alerts" id="alerts"></ul>
+    </div>
+  </section>
+
+  <!-- Inspect an image -->
+  <section id="v-inspect" class="view" hidden aria-label="Inspect an image">
+    <div class="head"><h2>Inspect an image</h2><p>Upload a part image and the model inspects it.</p></div>
+    <div class="bay">
+      <div class="stage">
+        <div class="frame" id="up-frame"><div class="empty">No image yet</div></div>
+        <div class="controls"><span id="up-status"></span><label><input type="checkbox" id="heat-toggle-2" checked> Heat map</label></div>
+      </div>
+      <div class="panel">
+        <label class="drop" id="drop" for="file">
+          <input type="file" id="file" accept="image/*">
+          <b>Drop an image here or click to choose</b>
+          <span>JPEG, PNG or BMP, up to 20 MB</span>
+        </label>
+        <div class="row">
+          <label for="up-type" class="muted">Part type</label>
+          <select id="up-type"><option value="auto">Detect automatically</option></select>
+        </div>
+        <div class="row">
+          <span class="muted">No image at hand?</span>
+          <button type="button" id="try-good">Try a good test part</button>
+          <button type="button" id="try-bad">Try a defective test part</button>
+        </div>
+        <div class="badge wait" id="up-badge">…</div>
+        <div class="finding" id="up-finding"></div>
+        <div class="facts" id="up-facts"></div>
+        <div class="check" id="up-check" hidden></div>
+        <p class="note">The model was trained on the ZeroDefect demo parts (plastic nut, plug, end cap, U block, mounts). Photos of other objects look unfamiliar to it and are reported as anomalies; that is the expected behaviour of an anomaly detector.</p>
+      </div>
     </div>
   </section>
 
   <!-- Dashboard -->
   <section id="v-dash" class="view" hidden aria-label="Dashboard">
-    <div class="wrap">
-      <div class="head"><h2>Production quality</h2><p id="period"></p></div>
-      <div class="kpis" id="kpis"></div>
-      <div class="grid">
-        <figure><figcaption><div><h3>Defect Pareto</h3><p>Rejected parts by defect class</p></div></figcaption><div class="bars" id="pareto"></div></figure>
-        <figure><figcaption><div><h3>Defect rate by machine</h3><p>Share of parts rejected, %</p></div></figcaption><div class="bars" id="by-machine"></div></figure>
-        <figure class="wide"><figcaption><div><h3>First-pass yield by day</h3><p>All machines, %</p></div></figcaption><div id="yield"></div></figure>
-      </div>
+    <div class="head"><h2>Production quality</h2><p id="period"></p></div>
+    <p class="note"><b>Placeholder data.</b> The numbers on this screen come from the plant simulator (7 days of simulated production) and show how the analytics will work. Defect finding itself runs the real model on the Live inspection and Inspect an image screens.</p>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid">
+      <figure><figcaption><div><h3>Defect Pareto</h3><p>Rejected parts by defect class</p></div></figcaption><div class="bars" id="pareto"></div></figure>
+      <figure><figcaption><div><h3>Defect rate by machine</h3><p>Share of parts rejected, %</p></div></figcaption><div class="bars" id="by-machine"></div></figure>
+      <figure class="wide"><figcaption><div><h3>First-pass yield by day</h3><p>All machines, %</p></div></figcaption><div id="yield"></div></figure>
     </div>
   </section>
 
   <!-- Factory map -->
   <section id="v-map" class="view" hidden aria-label="Factory map">
-    <div class="wrap">
-      <div class="head"><h2>Factory map</h2><p>Machine health over the last hour of production. Click a machine for its history.</p></div>
-      <div class="lines" id="lines"></div>
-      <div class="grid" id="drill" hidden>
-        <figure><figcaption><div><h3 id="drill-title"></h3><p>Defect rate by day, %</p></div></figcaption><div id="drill-rate"></div></figure>
-        <figure><figcaption><div><h3>Process parameter by day</h3><p id="drill-sp"></p></div>
-          <select id="drill-param" aria-label="Process parameter"></select></figcaption><div id="drill-param-chart"></div></figure>
-      </div>
+    <div class="head"><h2>Factory map</h2><p>Machine health over the last hour. Click a machine for its history.</p></div>
+    <p class="note"><b>Placeholder data.</b> Machines, operators, resin lots and process values are simulated until the line's real data is connected.</p>
+    <div class="lines" id="lines"></div>
+    <div class="grid" id="drill" hidden>
+      <figure><figcaption><div><h3 id="drill-title"></h3><p>Defect rate by day, %</p></div></figcaption><div id="drill-rate"></div></figure>
+      <figure><figcaption><div><h3>Process parameter by day</h3><p id="drill-sp"></p></div>
+        <select id="drill-param" aria-label="Process parameter"></select></figcaption><div id="drill-param-chart"></div></figure>
     </div>
   </section>
 
   <!-- Traceability -->
   <section id="v-trace" class="view" hidden aria-label="Traceability">
-    <div class="wrap">
-      <div class="head"><h2>Part traceability</h2><p id="trace-count"></p></div>
-      <form class="search" id="search">
-        <input id="q" type="search" placeholder="Part ID, resin lot or operator (e.g. IMM03, SUP-C-L004, OP-08)" aria-label="Search">
-        <select id="s-machine" aria-label="Machine"><option value="">All machines</option></select>
-        <select id="s-result" aria-label="Result"><option value="">All results</option><option value="defect">Rejected</option><option value="good">Passed</option></select>
-        <button type="submit">Search</button>
-      </form>
-      <div class="trace">
-        <div class="panel scroll"><table>
-          <thead><tr><th>Time</th><th>Part ID</th><th>Machine</th><th>Operator</th><th>Resin lot</th><th>Result</th></tr></thead>
-          <tbody id="rows"></tbody>
-        </table></div>
-        <div class="panel" id="detail"><p class="muted">Select a part to see its images and full production record.</p></div>
-      </div>
+    <div class="head"><h2>Part traceability</h2><p id="trace-count"></p></div>
+    <p class="note"><b>Placeholder data</b> for the production records. Opening a part runs the real model on its camera images.</p>
+    <form class="search" id="search">
+      <input id="q" type="search" placeholder="Part ID, resin lot or operator (e.g. IMM03, SUP-C-L004, OP-08)" aria-label="Search">
+      <select id="s-machine" aria-label="Machine"><option value="">All machines</option></select>
+      <select id="s-result" aria-label="Label"><option value="">All labels</option><option value="defect">Defective</option><option value="good">Good</option></select>
+      <button type="submit">Search</button>
+    </form>
+    <div class="trace">
+      <div class="panel scroll"><table>
+        <thead><tr><th>Time</th><th>Part ID</th><th>Machine</th><th>Operator</th><th>Resin lot</th><th>Dataset label</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+      <div class="panel" id="detail"><p class="muted">Select a part: the model inspects its 5 camera images and shows the result.</p></div>
     </div>
   </section>
 
   <footer>
-    Production data comes from the ZeroDefect plant simulator (simulated lines, operators, resin lots and process parameters).
-    Pass/fail and defect boxes currently come from the dataset labels; the AI inspection model takes over in milestone M1.
+    Defect finding (Live inspection, Inspect an image, part details) runs the real PatchCore model on the demo part images.
+    Machines, operators, resin lots, process values and production history are placeholder data from the ZeroDefect plant simulator.
   </footer>
 </div>
 
@@ -271,11 +331,43 @@ const $ = id => document.getElementById(id);
 const get = url => fetch(url).then(r => { if (!r.ok) throw new Error(`${url}: ${r.status}`); return r.json(); });
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const fmt = (v, d = 1) => Number(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
-const pretty = s => s.replace(/_/g, " ").replace(/^./, c => c.toUpperCase());
+const pct = (v, d = 0) => v == null || Number.isNaN(v) ? "–" : fmt(100 * v, d) + "%";
+const pretty = s => String(s).replace(/_/g, " ").replace(/^./, c => c.toUpperCase());
 const SEV = { minor: "--warning", major: "--serious", critical: "--critical" };
 const STATUS = { ok: ["OK", "--good"], watch: ["Watch", "--warning"], alarm: ["Alarm", "--critical"], stopped: ["Stopped", "--faint"] };
 const LIVE_PARAMS = ["melt_temp", "injection_pressure", "mould_temp", "cycle_time"];
 let CFG, view = "live";
+
+/* ---------- shared rendering ---------- */
+const className = k => CFG.classes[k]?.name ?? pretty(k);
+const boxesHTML = boxes => (boxes || []).map(b => {
+  const c = CFG.classes[b.cls];
+  return `<div class="box" style="left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%;--c:${c.color}"><span>${esc(c.name)}</span></div>`;
+}).join("");
+const frameInner = (url, heat, boxes, cam = "") =>
+  `<img src="${url}" alt="Part image">${heat ? `<img class="heat" src="${heat}" alt="">` : ""}${boxesHTML(boxes)}${cam ? `<div class="cam">${esc(cam)}</div>` : ""}`;
+function verdict(prefix, r) {
+  const badge = $(`${prefix}badge`);
+  badge.textContent = r.defect ? "FAIL" : "PASS";
+  badge.className = "badge" + (r.defect ? " fail" : "");
+  if (r.defect) {
+    const c = CFG.classes[r.cls];
+    $(`${prefix}finding`).innerHTML = `<i class="swatch" style="--c:${c.color}"></i>${esc(c.name)}` +
+      `<span class="sev" style="--s:var(${SEV[c.severity]})">${c.severity}</span><span class="muted">${pct(r.confidence)} confidence</span>`;
+  } else {
+    $(`${prefix}finding`).innerHTML = `<span class="muted">No defect found</span>`;
+  }
+  const views = r.flagged_views != null && r.views_total > 1 ? ` · ${r.flagged_views} of ${r.views_total} views flagged` : "";
+  $(`${prefix}facts`).textContent = `Anomaly score ${fmt(r.score, 2)} · threshold ${fmt(r.threshold, 2)}${views} · ${r.ms} ms`;
+}
+function labelCheck(el, label, r) {
+  if (label === undefined) { el.hidden = true; return; }
+  const truthDefect = label !== null && label !== "good";
+  const ok = truthDefect === r.defect && (!r.defect || r.cls === label);
+  el.hidden = false;
+  el.className = "check" + (ok ? "" : " bad");
+  el.innerHTML = `Dataset label: <b>${truthDefect ? esc(className(label)) : "Good"}</b> · ${ok ? "✓ AI agrees" : "✗ AI disagrees"}`;
+}
 
 /* ---------- charts ---------- */
 function bars(el, rows, hot) {
@@ -309,41 +401,27 @@ function line(el, pts, { d = 1, unit = "", ref, W = 600 } = {}) {
   el.innerHTML = `<svg class="line" viewBox="0 0 ${W} ${H}" role="img" aria-label="${pts.length} daily values">${g}</svg>`;
 }
 
-/* ---------- images with defect boxes ---------- */
-const boxesHTML = v => v.boxes.map(b => {
-  const c = CFG.classes[b.cls];
-  return `<div class="box" style="left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%;--c:${c.color}"><span>${esc(c.name)}</span></div>`;
-}).join("");
-const frameHTML = (v, cls = "") => `<div class="frame ${cls}"><img src="${v.url}" alt="View ${esc(v.view)}">${boxesHTML(v)}</div>`;
-function findingHTML(p) {
-  if (!p.cls) return `<span class="muted">No defect found</span>`;
-  const c = CFG.classes[p.cls];
-  return `<i class="swatch" style="--c:${c.color}"></i>${esc(c.name)}<span class="sev" style="--s:var(${SEV[c.severity]})">${c.severity}</span>`;
-}
-
 /* ---------- live inspection ---------- */
-let shown = null, viewIdx = 0, follow = true, latest = null, pendingFail = null, holdUntil = 0, inspected = 0, rejected = 0;
+let shown = null, viewIdx = 0, follow = true, inspected = 0, rejected = 0, agree = 0, typed = 0, typedOk = 0;
 const recent = [];
+const withViews = p => ({ ...p.result, views_total: p.views.length });
 function showPart(p) {
   shown = p;
-  const v = p.views[Math.min(viewIdx, p.views.length - 1)];
-  $("shot").src = v.url;
-  $("boxes").innerHTML = boxesHTML(v);
-  $("cam").textContent = `${p.machine} · cavity ${p.cavity} · camera ${v.view ?? 1} · ${p.ts.slice(11)}`;
+  if (viewIdx >= p.views.length) viewIdx = 0;
+  const v = p.views[viewIdx];
+  $("shot").innerHTML = frameInner(v.url, v.heatmap, v.boxes, `camera ${v.view ?? 1} · score ${fmt(v.score, 2)}`);
   $("views").innerHTML = p.views.length > 1 ? "Camera " + p.views.map((w, i) =>
-    `<button type="button" data-i="${i}" class="${w === v ? "on" : ""}">${esc(w.view)}</button>`).join("") : "";
-  $("badge").textContent = p.cls ? "FAIL" : "PASS";
-  $("badge").className = "badge" + (p.cls ? " fail" : "");
-  $("finding").innerHTML = findingHTML(p);
+    `<button type="button" data-i="${i}" class="${i === viewIdx ? "on" : ""}${w.defect ? " flag" : ""}" title="${w.defect ? "Defect seen in this view" : "No defect in this view"}">${esc(w.view)}</button>`).join(" ") : "";
+  verdict("", withViews(p));
+  labelCheck($("check"), p.label, p.result);
   $("f-id").textContent = p.id;
-  $("f-part").textContent = `${pretty(p.part_type)} (${p.material})`;
-  $("f-machine").textContent = `${p.machine}, mould ${p.mould}, cavity ${p.cavity}`;
-  $("f-operator").textContent = `${p.operator}, shift ${p.shift}`;
-  $("f-lot").textContent = `${p.lot} (${p.supplier})`;
-  const sp = CFG.machines[p.machine].setpoints;
+  $("f-type").textContent = pretty(p.part_type);
+  const c = p.context, sp = CFG.machines[c.machine].setpoints;
+  $("context").innerHTML = [["Machine", `${c.machine}, mould ${c.mould}, cavity ${c.cavity}`], ["Operator", `${c.operator}, shift ${c.shift}`],
+    ["Resin lot", `${c.lot} (${c.supplier})`], ["Produced", p.ts.replace("T", " ")]].map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
   $("params").innerHTML = LIVE_PARAMS.map(k => {
-    const { unit, tolerance } = CFG.params[k], v = p.params[k], dev = v - sp[k], d = k === "injection_pressure" ? 0 : 1;
-    return `<tr><td class="txt">${pretty(k)}</td><td>${fmt(v, d)} ${unit}</td>` +
+    const { unit, tolerance } = CFG.params[k], val = c.params[k], dev = val - sp[k], d = k === "injection_pressure" ? 0 : 1;
+    return `<tr><td class="txt">${pretty(k)}</td><td>${fmt(val, d)} ${unit}</td>` +
       `<td class="r${Math.abs(dev) > 0.5 * tolerance ? " off" : ""}">${dev >= 0 ? "+" : "−"}${fmt(Math.abs(dev), d)}</td></tr>`;
   }).join("");
   document.querySelectorAll(".thumb").forEach(t => t.classList.toggle("on", t.dataset.id === p.id));
@@ -357,44 +435,73 @@ $("ribbon").addEventListener("click", e => {
   follow = false; $("follow").hidden = false;
   showPart(recent.find(p => p.id === t.dataset.id));
 });
-$("follow").addEventListener("click", () => { follow = true; $("follow").hidden = true; if (latest) showPart(latest); });
+$("follow").addEventListener("click", () => { follow = true; $("follow").hidden = true; if (recent[0]) showPart(recent[0]); });
+for (const id of ["heat-toggle", "heat-toggle-2"])
+  $(id).addEventListener("change", e => { document.body.classList.toggle("no-heat", !e.target.checked);
+    $("heat-toggle").checked = $("heat-toggle-2").checked = e.target.checked; });
 
 function onPart(p) {
-  inspected++; if (p.cls) { rejected++; pendingFail = p; }
-  latest = p;
-  recent.unshift(p); if (recent.length > 30) recent.pop();
+  const r = p.result, truthDefect = p.label !== null;
+  inspected++; if (r.defect) rejected++;
+  if (truthDefect === r.defect) agree++;
+  if (truthDefect && r.defect) { typed++; if (r.cls === p.label) typedOk++; }
   $("n-ins").textContent = inspected.toLocaleString("en-US");
   $("n-rej").textContent = rejected.toLocaleString("en-US");
-  $("n-yield").textContent = fmt(100 * (1 - rejected / inspected), 1) + "%";
+  $("n-agree").textContent = pct(agree / inspected);
+  $("n-type").textContent = typed ? pct(typedOk / typed) : "–";
+  recent.unshift(p); if (recent.length > 30) recent.pop();
   const t = document.createElement("button");
-  t.type = "button"; t.className = "thumb" + (p.cls ? " fail" : ""); t.dataset.id = p.id;
-  t.setAttribute("aria-label", `${p.id} ${p.cls ? "rejected" : "passed"}`);
-  t.innerHTML = `<img src="${p.views[0].url}" alt=""><small>${p.cls ? "FAIL" : "PASS"}</small>`;
+  t.type = "button"; t.className = "thumb" + (r.defect ? " fail" : ""); t.dataset.id = p.id;
+  t.setAttribute("aria-label", `${p.id} ${r.defect ? "rejected" : "passed"}`);
+  t.innerHTML = `<img src="${p.views[0].url}" alt=""><small>${r.defect ? "FAIL" : "PASS"}</small>`;
   $("ribbon").prepend(t);
   while ($("ribbon").children.length > 30) $("ribbon").lastChild.remove();
+  if (follow) showPart(p);
 }
-// Show the newest part about once a second; hold every rejected part on screen for a few seconds.
-setInterval(() => {
-  if (!follow) return;
-  const now = Date.now();
-  if (pendingFail) { showPart(pendingFail); pendingFail = null; holdUntil = now + 3500; return; }
-  if (now >= holdUntil && latest && latest !== shown) showPart(latest);
-}, 900);
 
-/* ---------- line clock ---------- */
-let simNow = null, simAt = 0;
-function syncClock(iso) { simNow = new Date(iso); simAt = Date.now(); }
-setInterval(() => {
-  if (!simNow) return;
-  const t = new Date(simNow.getTime() + (Date.now() - simAt) * CFG.speed);
-  $("clock").textContent = t.toLocaleString("en-GB", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}, 250);
+async function loadModel() {
+  const m = await get("/api/model");
+  $("min-views").textContent = m.min_views;
+  const rows = Object.entries(m.part_types);
+  const parts = rows.reduce((s, [, r]) => s + r.parts, 0), correct = rows.reduce((s, [, r]) => s + r.accuracy * r.parts, 0);
+  $("model-summary").innerHTML = `<b style="color:var(--fg)">${pct(correct / parts, 1)}</b> of ${parts} held-out test parts judged correctly (PASS/FAIL).`;
+  $("model-table").innerHTML = rows.map(([k, r]) => `<tr><td class="txt">${pretty(k)}</td><td class="r">${r.parts}</td>
+    <td class="r">${pct(r.accuracy)}</td><td class="r">${pct(r.defects_found)}</td><td class="r">${pct(r.false_rejects)}</td><td class="r">${pct(r.type_accuracy)}</td></tr>`).join("");
+}
 
-/* ---------- machines: alerts + factory map ---------- */
+/* ---------- inspect an image ---------- */
+async function inspectBlob(blob, label) {
+  $("up-status").textContent = "Inspecting…";
+  const url = URL.createObjectURL(blob);
+  try {
+    const r = await fetch(`/api/inspect?part_type=${encodeURIComponent($("up-type").value)}`, { method: "POST", body: blob });
+    const res = await r.json();
+    if (!r.ok) throw new Error(res.detail || "Inspection failed");
+    $("up-frame").innerHTML = frameInner(url, res.heatmap, res.boxes, `part type: ${pretty(res.part_type)}`);
+    verdict("up-", res);
+    labelCheck($("up-check"), label, res);
+    $("up-status").textContent = `Part type ${$("up-type").value === "auto" ? "detected" : "chosen"}: ${pretty(res.part_type)}`;
+  } catch (err) {
+    $("up-status").textContent = err.message;
+  }
+}
+$("file").addEventListener("change", e => { const f = e.target.files[0]; if (f) inspectBlob(f); e.target.value = ""; });
+const drop = $("drop");
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, () => drop.classList.remove("over")));
+drop.addEventListener("drop", e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) inspectBlob(f); });
+async function tryTest(defect) {
+  const r = await fetch(`/api/test-image?defect=${defect}`);
+  const label = r.headers.get("X-Label");
+  inspectBlob(await r.blob(), label === "good" ? null : label);
+}
+$("try-good").addEventListener("click", () => tryTest(false));
+$("try-bad").addEventListener("click", () => tryTest(true));
+
+/* ---------- machines: alerts + factory map (placeholder data) ---------- */
 let selected = null, drillData = null;
 async function loadMachines() {
-  const { now, machines } = await get("/api/machines");
-  syncClock(now);
+  const { machines } = await get("/api/machines");
   const alarms = machines.filter(m => m.alerts.length);
   $("n-alarm").hidden = !alarms.length; $("n-alarm").textContent = alarms.length;
   $("alerts").innerHTML = alarms.length ? alarms.flatMap(m => m.alerts.map(a =>
@@ -404,8 +511,7 @@ async function loadMachines() {
   $("lines").innerHTML = lines.map(l => {
     const ms = machines.filter(m => m.line === l);
     return `<div class="line-row"><h3>${esc(ms[0].line_name)}</h3>` + ms.map(m => {
-      const [label, color] = STATUS[m.status];
-      const mt = m.means.mould_temp, sp = m.setpoints.mould_temp;
+      const [label, color] = STATUS[m.status], mt = m.means.mould_temp;
       return `<button type="button" class="machine${m.id === selected ? " on" : ""}" data-id="${m.id}" style="--st:var(${color})">
         <header><b>${m.id}</b><span class="pill">${label}</span></header>
         <span class="muted">${pretty(m.part_type)} · ${esc(m.material)}</span>
@@ -442,17 +548,17 @@ function drawParam() {
 }
 $("drill-param").addEventListener("change", drawParam);
 
-/* ---------- dashboard ---------- */
+/* ---------- dashboard (placeholder data) ---------- */
 async function loadSummary() {
   const s = await get("/api/summary");
-  $("period").textContent = `${s.days} days · 3 lines · 6 machines · updates live`;
+  $("period").textContent = `${s.days} days · 3 lines · 6 machines`;
   $("kpis").innerHTML = [
-    ["Parts inspected", s.parts.toLocaleString("en-US")],
+    ["Parts produced", s.parts.toLocaleString("en-US")],
     ["First-pass yield", fmt(100 * (1 - s.defects / s.parts), 2) + "%"],
     ["Defects per million", Math.round(1e6 * s.defects / s.parts).toLocaleString("en-US")],
     ["Parts rejected", s.defects.toLocaleString("en-US")],
   ].map(([l, v]) => `<div class="kpi"><span>${l}</span><b>${v}</b></div>`).join("");
-  bars($("pareto"), s.pareto.map(r => ({ label: CFG.classes[r.k].name, v: r.n, text: r.n.toLocaleString("en-US") })));
+  bars($("pareto"), s.pareto.map(r => ({ label: className(r.k), v: r.n, text: r.n.toLocaleString("en-US") })));
   const worst = s.machines.reduce((a, b) => (b.v > a.v ? b : a)).k;
   bars($("by-machine"), s.machines.map(r => ({ key: r.k, label: `${r.k} · ${pretty(CFG.machines[r.k].part_type)}`, v: r.v, text: fmt(100 * r.v, 2) })), worst);
   line($("yield"), s.yield.map(p => ({ d: p.d, v: p.v })), { d: 2, unit: "%", W: 1200 });
@@ -465,28 +571,32 @@ async function search() {
   $("trace-count").textContent = `${total.toLocaleString("en-US")} matching parts${total > rows.length ? `, newest ${rows.length} shown` : ""}`;
   $("rows").innerHTML = rows.map(r => `<tr data-id="${r.part_id}"><td>${r.timestamp.slice(5, 16).replace("T", " ")}</td>
     <td>${r.part_id}</td><td>${r.machine_id}/${r.cavity}</td><td>${r.operator_id}</td><td>${r.resin_lot}</td>
-    <td class="res ${r.true_class ? "fail" : "pass"}">${r.true_class ? "FAIL · " + esc(CFG.classes[r.true_class].name) : "PASS"}</td></tr>`).join("");
+    <td class="res ${r.true_class ? "fail" : "pass"}">${r.true_class ? esc(className(r.true_class)) : "Good"}</td></tr>`).join("");
 }
 $("search").addEventListener("submit", e => { e.preventDefault(); search(); });
 $("rows").addEventListener("click", async e => {
   const tr = e.target.closest("tr"); if (!tr) return;
   document.querySelectorAll("#rows tr").forEach(r => r.classList.toggle("sel", r === tr));
+  $("detail").innerHTML = `<p class="muted">Running the model on 5 camera images…</p>`;
   const p = await get(`/api/parts/${encodeURIComponent(tr.dataset.id)}`);
-  const sp = CFG.machines[p.machine].setpoints;
+  const c = p.context;
   $("detail").innerHTML = `
-    <div class="badge${p.cls ? " fail" : ""}" style="font-size:40px">${p.cls ? "FAIL" : "PASS"}</div>
-    <div class="finding">${findingHTML(p)}</div>
-    <div class="views-grid">${p.views.map(v => frameHTML(v, "small")).join("")}</div>
+    <div class="panel-head"><h3>AI inspection result</h3><span class="chip ai">Real model</span></div>
+    <div class="badge" id="d-badge" style="font-size:40px"></div>
+    <div class="finding" id="d-finding"></div>
+    <div class="facts" id="d-facts"></div>
+    <div class="check" id="d-check"></div>
+    <div class="views-grid">${p.views.map(v => `<div class="frame small">${frameInner(v.url, v.heatmap, v.boxes)}</div>`).join("")}</div>
+    <div class="panel-head"><h3>Production record</h3><span class="chip">Placeholder data</span></div>
     <dl>
       <dt>Part ID</dt><dd>${p.id}</dd><dt>Produced</dt><dd>${p.ts.replace("T", " ")}</dd>
-      <dt>Part</dt><dd>${pretty(p.part_type)} (${esc(p.material)})</dd>
-      <dt>Machine</dt><dd>${p.line} · ${p.machine} · mould ${p.mould} · cavity ${p.cavity}</dd>
-      <dt>Operator</dt><dd>${p.operator}, shift ${p.shift} (${p.shift_date})</dd>
-      <dt>Resin</dt><dd>lot ${p.lot}, supplier ${p.supplier}</dd>
-    </dl>
-    <table><thead><tr><th>Process</th><th>Actual</th><th class="r">Set point</th></tr></thead><tbody>
-      ${Object.entries(p.params).map(([k, v]) => `<tr><td class="txt">${pretty(k)}</td><td>${fmt(v, 2)} ${CFG.params[k].unit}</td><td class="r">${sp[k]}</td></tr>`).join("")}
-    </tbody></table>`;
+      <dt>Part</dt><dd>${pretty(p.part_type)} (${esc(c.material)})</dd>
+      <dt>Machine</dt><dd>${c.line} · ${c.machine} · mould ${c.mould} · cavity ${c.cavity}</dd>
+      <dt>Operator</dt><dd>${c.operator}, shift ${c.shift} (${c.shift_date})</dd>
+      <dt>Resin</dt><dd>lot ${c.lot}, supplier ${c.supplier}</dd>
+    </dl>`;
+  verdict("d-", withViews(p));
+  labelCheck($("d-check"), p.label, p.result);
 });
 
 /* ---------- routing & refresh ---------- */
@@ -495,7 +605,7 @@ function refresh() {
   if (view === "dash") loadSummary().catch(() => {});
 }
 function route() {
-  view = ["live", "dash", "map", "trace"].find(v => v === location.hash.slice(1)) ?? "live";
+  view = ["live", "inspect", "dash", "map", "trace"].find(v => v === location.hash.slice(1)) ?? "live";
   document.querySelectorAll(".view").forEach(s => s.hidden = s.id !== `v-${view}`);
   document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.dataset.v === view));
   refresh();
@@ -504,10 +614,11 @@ function route() {
 
 (async () => {
   CFG = await get("/api/config");
-  $("speed").textContent = `×${CFG.speed} speed`;
   $("s-machine").innerHTML += Object.keys(CFG.machines).map(m => `<option>${m}</option>`).join("");
+  $("up-type").innerHTML += CFG.part_types.map(t => `<option value="${t}">${pretty(t)}</option>`).join("");
   window.addEventListener("hashchange", route);
   route();
+  loadModel().catch(() => {});
   setInterval(refresh, 5000);
   const es = new EventSource("/api/stream");
   es.onmessage = e => { $("conn").classList.remove("off"); onPart(JSON.parse(e.data)); };

@@ -1,7 +1,7 @@
 """Start the ZeroDefect web app.
 
 uv run python -m backend                 # http://127.0.0.1:8000
-uv run python -m backend --speed 10      # simulated time runs 10x faster than real time
+uv run python -m backend --interval 3    # inspect a part every 3 seconds
 """
 
 import argparse
@@ -15,6 +15,8 @@ import uvicorn
 
 from backend.app import Plant, create_app
 from inspection.paths import data_root
+from ml.datasets import demo
+from ml.datasets.common import load_manifests
 
 
 def _open_when_ready(url: str, port: int) -> None:
@@ -33,21 +35,27 @@ def main(argv=None) -> None:
         prog="python -m backend", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     p.add_argument("--images", default="demo", help="dataset sources for part images (default: demo)")
-    p.add_argument("--speed", type=float, default=5.0, help="simulated seconds per real second (default: 5)")
-    p.add_argument("--history-days", type=int, default=7, help="days of production before now (default: 7)")
+    p.add_argument(
+        "--interval", type=float, default=1.5, help="seconds between inspected parts (default: 1.5)"
+    )
+    p.add_argument("--history-days", type=int, default=7, help="days of placeholder history (default: 7)")
     p.add_argument("--port", type=int, default=8000)
     p.add_argument("--no-browser", action="store_true", help="do not open the browser")
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(message)s")
 
     images = args.images.split(",")
-    if images == ["demo"] and not any((data_root() / "processed/demo").glob("*/manifest.jsonl")):
-        from ml.datasets import demo
-
+    manifest = load_manifests(["demo"])
+    if images == ["demo"] and not ((manifest.split == "train") & (manifest.label == "defect")).any():
         print("Creating the demo parts dataset (first run only)...")
         demo.generate()
-    print(f"Simulating {args.history_days} days of production...")
-    app = create_app(Plant(images, args.history_days, args.speed))
+        for stale in (data_root() / "models").glob("demo_*.pt"):
+            stale.unlink()
+    categories = load_manifests(images[:1]).category.unique()
+    if not all((data_root() / "models" / f"{images[0]}_{c}.pt").exists() for c in categories):
+        print("Training the defect-finding model (first run only, about 1-2 minutes)...")
+    print(f"Loading the model and {args.history_days} days of placeholder production data...")
+    app = create_app(Plant(images, args.history_days, args.interval))
     url = f"http://127.0.0.1:{args.port}"
     print(f"ZeroDefect is running at {url}  (Ctrl+C to stop)")
     if not args.no_browser:

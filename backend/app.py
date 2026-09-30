@@ -1,31 +1,38 @@
-"""ZeroDefect web app: a live simulated line with inspection, dashboard, factory map and traceability.
+"""ZeroDefect web app: live AI defect inspection, image upload, dashboard, factory map and traceability.
 
-The plant simulator produces parts in (accelerated) real time; the UI streams them over
-Server-Sent Events. Verdicts are the dataset labels until the M1 inspection model exists.
+Defect finding is real: every part on the live line (and every uploaded image) goes through the
+PatchCore model. The production context around it (machines, operators, resin lots, process
+values, the history behind the dashboard) is PLACEHOLDER data from the plant simulator.
 """
 
 import asyncio
 import json
+import random
 import threading
 import time
+from collections import deque
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import cv2
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 
+from inspection.patchcore import MIN_VIEWS, Inspector, heatmap_png
 from inspection.paths import data_root
 from inspection.taxonomy import load_taxonomy
 from ml.datasets.common import resolve
 from simulator.config import load_config
-from simulator.images import ImagePool
+from simulator.images import GOOD, ImagePool
 from simulator.production import ProductionSimulator
 
 STATIC = Path(__file__).parent / "static"
 PARAMS = ["melt_temp", "injection_pressure", "holding_time", "cooling_time", "mould_temp", "cycle_time"]
 WINDOW = timedelta(hours=1)  # "recent" window for machine status and alerts, in simulated time
+GOOD_SHARE = 0.6  # share of good parts the live camera feeds in; the rest are defective test parts
+MAX_UPLOAD = 20 * 1024 * 1024
 
 
 def _clean(v):
@@ -37,72 +44,94 @@ def _clean(v):
     return v.item() if isinstance(v, np.generic) else v
 
 
-def coco_boxes(sources) -> dict[str, list[dict]]:
-    """Defect boxes per image path, in % of the image size, from the converted COCO files."""
-    tax = load_taxonomy()
-    out: dict[str, list[dict]] = {}
-    for path in (p for s in sources for p in (data_root() / "processed" / s).glob("*/coco.json")):
-        coco = json.loads(path.read_text(encoding="utf-8"))
-        images = {im["id"]: im for im in coco["images"]}
-        for a in coco["annotations"]:
-            im = images[a["image_id"]]
-            x, y, w, h = a["bbox"]
-            out.setdefault(im["file_name"], []).append(
-                {
-                    "x": 100 * x / im["width"],
-                    "y": 100 * y / im["height"],
-                    "w": 100 * w / im["width"],
-                    "h": 100 * h / im["height"],
-                    "cls": tax.by_id(a["category_id"]).key,
-                }
-            )
-    return out
+def _result(res: dict, ms: float) -> dict:
+    keys = ("defect", "cls", "confidence", "score", "threshold", "flagged_views")
+    return {**{k: res[k] for k in keys if k in res}, "ms": round(ms)}
 
 
 class Plant:
-    """The running line: simulated history up to now, then live production in a background thread."""
+    """Placeholder production history up to now, then a live line where the model inspects every part."""
 
-    def __init__(self, images=("demo",), history_days: int = 7, speed: float = 5.0):
+    def __init__(self, images=("demo",), history_days: int = 7, interval: float = 1.5, inspector=None):
         self.cfg = load_config()
         self.pool = ImagePool.from_sources(images)
         self.samples = sorted(self.pool.views)
         self.sample_index = {s: i for i, s in enumerate(self.samples)}
-        self.boxes = coco_boxes(images)
-        self.speed = speed
+        self.inspector = inspector or Inspector.load_or_fit(images[0], data_root() / "models")
+        self.interval = interval
         start = (datetime.now() - timedelta(days=history_days)).replace(second=0, microsecond=0)
         self.sim = ProductionSimulator(self.cfg, self.pool, start=start)
         self.df = self.sim.run(history_days)
         daily = (self.df.true_label == "defect").groupby([self.df.machine_id, self.df.shift_date]).mean()
         self.baseline = daily.groupby(level=0).median().to_dict()  # a machine's normal defect rate
-        self.live: list[dict] = []
+        self.events: deque[tuple[int, dict]] = deque(maxlen=200)
+        self.seq = 0
+        self._inspected: dict[str, dict] = {}  # recent inspections by part id, with heat maps
         self._pending: list[dict] = []
         self._lock = threading.Lock()
-        self._t0_sim, self._t0_wall = start + timedelta(days=history_days), time.monotonic()
-        threading.Thread(target=self._produce, daemon=True).start()
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._line, daemon=True)
+        self._thread.start()
 
-    def now(self) -> datetime:
-        return self._t0_sim + timedelta(seconds=(time.monotonic() - self._t0_wall) * self.speed)
+    def close(self) -> None:
+        self._stop.set()
+        self._thread.join(timeout=30)
 
-    def _produce(self) -> None:
+    def _line(self) -> None:
+        """The live camera: next part, inspect all its views, publish, repeat."""
+        rng = np.random.default_rng()
         for rec in self.sim.iter_parts():
-            wait = (rec["timestamp"] - self.now()).total_seconds() / self.speed
-            if wait > 0:
-                time.sleep(wait)
+            if self._stop.is_set():
+                return
+            t0 = time.monotonic()
+            pt = rec["part_type"]
+            defects = sorted(self.pool.classes(pt) - {GOOD})
+            cls = GOOD if rng.random() < GOOD_SHARE or not defects else str(rng.choice(defects))
+            rec.update(
+                image_sample_id=str(self.pool.sample(pt, cls, 1, rng)[0]),
+                true_label="good" if cls == GOOD else "defect",
+                true_class=None if cls == GOOD else cls,
+            )
+            event = self.inspect(rec)
             with self._lock:
-                self.live.append(rec)
                 self._pending.append(rec)
+                self.seq += 1
+                self.events.append((self.seq, event))
+            time.sleep(max(0.0, self.interval - (time.monotonic() - t0)))
+
+    def inspect(self, rec: dict) -> dict:
+        """Run the model on all camera views of a part (cached for recent parts)."""
+        if hit := self._inspected.get(rec["part_id"]):
+            return hit
+        views = self.pool.views[rec["image_sample_id"]]
+        t = time.perf_counter()
+        res = self.inspector.inspect_part(
+            rec["part_type"], [cv2.imread(str(resolve(v["image_path"]))) for v in views]
+        )
+        out = self.part(rec)
+        out["result"] = _result(res, 1000 * (time.perf_counter() - t))
+        for v, r in zip(out["views"], res["views"], strict=True):
+            v.update(
+                score=r["score"],
+                defect=r["defect"],
+                cls=r["cls"],
+                confidence=r["confidence"],
+                boxes=r["boxes"],
+                heatmap=heatmap_png(r["heatmap"], res["threshold"]),
+            )
+        with self._lock:
+            self._inspected[rec["part_id"]] = out
+            while len(self._inspected) > 300:
+                self._inspected.pop(next(iter(self._inspected)))
+        return out
 
     def frame(self) -> pd.DataFrame:
-        """All parts so far (history + live), in time order."""
+        """All parts so far (placeholder history + live), in time order."""
         with self._lock:
             if self._pending:
                 self.df = pd.concat([self.df, pd.DataFrame(self._pending)], ignore_index=True)
                 self._pending = []
             return self.df
-
-    def recent(self, df: pd.DataFrame) -> pd.DataFrame:
-        i = np.searchsorted(df.timestamp.to_numpy(), np.datetime64(self.now() - WINDOW))
-        return df.iloc[i:]
 
     def part(self, rec) -> dict:
         sid = rec["image_sample_id"]
@@ -110,33 +139,33 @@ class Plant:
         return {
             "id": rec["part_id"],
             "ts": _clean(rec["timestamp"]),
-            "shift_date": str(rec["shift_date"]),
-            "shift": rec["shift"],
-            "line": rec["line_id"],
-            "machine": rec["machine_id"],
-            "mould": rec["mould_id"],
-            "cavity": _clean(rec["cavity"]),
             "part_type": rec["part_type"],
-            "material": rec["material"],
-            "operator": rec["operator_id"],
-            "supplier": rec["supplier_id"],
-            "lot": rec["resin_lot"],
-            "params": {p: _clean(rec[p]) for p in PARAMS},
-            "cls": _clean(rec["true_class"]),
+            "label": _clean(rec["true_class"]),  # dataset label of the image, to check the model against
+            "context": {  # placeholder production data
+                "shift_date": str(rec["shift_date"]),
+                "shift": rec["shift"],
+                "line": rec["line_id"],
+                "machine": rec["machine_id"],
+                "mould": rec["mould_id"],
+                "cavity": _clean(rec["cavity"]),
+                "material": rec["material"],
+                "operator": rec["operator_id"],
+                "supplier": rec["supplier_id"],
+                "lot": rec["resin_lot"],
+                "params": {p: _clean(rec[p]) for p in PARAMS},
+            },
             "views": [
-                {
-                    "view": v["view"],
-                    "url": f"/api/samples/{k}/{i}",
-                    "boxes": self.boxes.get(v["image_path"], []),
-                }
+                {"view": v["view"], "url": f"/api/samples/{k}/{i}"}
                 for i, v in enumerate(self.pool.views[sid])
             ],
         }
 
     def machines(self) -> list[dict]:
-        """Status per machine over the last simulated hour, with rule-based alerts."""
+        """Placeholder machine status over the last simulated hour, with rule-based alerts."""
         df = self.frame()
-        recent = self.recent(df)
+        recent = df.iloc[
+            np.searchsorted(df.timestamp.to_numpy(), np.datetime64(df.timestamp.iloc[-1] - WINDOW)) :
+        ]
         classes = {c.key: c.name for c in load_taxonomy().classes}
         out = []
         for line, m in self.cfg.machines:
@@ -151,11 +180,11 @@ class Plant:
                 )
             means = {p: float(r[p].mean()) if n else None for p in PARAMS}
             for p, spec in self.cfg.process_params.items():
-                dev = (means[p] or m.process[p]) - m.process[p]
-                if n and abs(dev) > 0.6 * spec.tolerance:
+                if n and abs(means[p] - m.process[p]) > 0.6 * spec.tolerance:
                     name = p.replace("_", " ").capitalize()
                     alerts.append(
-                        f"{name} {means[p]:.1f} {spec.unit}, {dev:+.1f} from set point {m.process[p]:g}"
+                        f"{name} {means[p]:.1f} {spec.unit}, {means[p] - m.process[p]:+.1f} "
+                        f"from set point {m.process[p]:g}"
                     )
             last = df[df.machine_id == m.id].iloc[-1]
             status = "stopped" if n == 0 else "alarm" if alerts else "watch" if rate > 1.5 * base else "ok"
@@ -192,7 +221,6 @@ def create_app(plant: Plant) -> FastAPI:
     @app.get("/api/config")
     def config():
         return {
-            "speed": plant.speed,
             "classes": {
                 c.key: {"name": c.name, "color": c.color, "severity": c.default_severity} for c in tax.classes
             },
@@ -203,21 +231,73 @@ def create_app(plant: Plant) -> FastAPI:
                 m.id: {"line": line.id, "part_type": m.part_type, "setpoints": m.process}
                 for line, m in plant.cfg.machines
             },
+            "part_types": sorted(plant.inspector.models),
+        }
+
+    @app.get("/api/model")
+    def model():
+        return {
+            "method": "PatchCore anomaly detection + k-nearest-neighbour defect typing",
+            "backbone": "ResNet-18 (ImageNet), layer 2+3 features, 224 px",
+            "min_views": MIN_VIEWS,
+            "part_types": {
+                k: {"threshold": m.threshold, **m.metrics} for k, m in plant.inspector.models.items()
+            },
         }
 
     @app.get("/api/stream")
     async def stream():
         async def events():
-            i = max(len(plant.live) - 12, 0)  # a few recent parts so the screen is never empty
+            last = plant.seq - 6  # a few recent parts so the screen is never empty
             while True:
-                new = plant.live[i:]
-                i += len(new)
-                for rec in new:
-                    yield f"data: {json.dumps(plant.part(rec))}\n\n"
-                await asyncio.sleep(0.25)
+                for seq, event in list(plant.events):
+                    if seq > last:
+                        last = seq
+                        yield f"data: {json.dumps(event)}\n\n"
+                await asyncio.sleep(0.2)
 
         return StreamingResponse(
             events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"}
+        )
+
+    @app.post("/api/inspect")
+    async def inspect_upload(request: Request, part_type: str = "auto"):
+        body = await request.body()
+        if len(body) > MAX_UPLOAD:
+            raise HTTPException(413, "Image is larger than 20 MB")
+        img = cv2.imdecode(np.frombuffer(body, np.uint8), cv2.IMREAD_COLOR)
+        if img is None:
+            raise HTTPException(400, "Not an image file (use JPEG, PNG or BMP)")
+        if part_type != "auto" and part_type not in plant.inspector.models:
+            raise HTTPException(400, f"Unknown part type {part_type!r}")
+        scale = 1024 / max(img.shape[:2])
+        if scale < 1:
+            img = cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+        t = time.perf_counter()
+        res = await asyncio.to_thread(
+            plant.inspector.inspect_image, img, None if part_type == "auto" else part_type
+        )
+        view = res["views"][0]
+        return {
+            "part_type": res["part_type"],
+            **_result(res, 1000 * (time.perf_counter() - t)),
+            "boxes": view["boxes"],
+            "heatmap": heatmap_png(view["heatmap"], res["threshold"]),
+        }
+
+    @app.get("/api/test-image")
+    def test_image(defect: bool = False):
+        """A random held-out test view, with its dataset label in the X-Label header."""
+        cands = [s for s, c in plant.pool.sample_class.items() if (c != GOOD) == defect]
+        sid = random.choice(cands)
+        view = random.choice(plant.pool.views[sid])
+        return FileResponse(
+            resolve(view["image_path"]),
+            headers={
+                "X-Label": plant.pool.sample_class[sid],
+                "X-Part-Type": sid.split("/")[1],
+                "Cache-Control": "no-store",
+            },
         )
 
     @app.get("/api/summary")
@@ -225,7 +305,6 @@ def create_app(plant: Plant) -> FastAPI:
         df = plant.frame()
         bad = df.true_label == "defect"
         return {
-            "now": _clean(plant.now()),
             "parts": len(df),
             "defects": int(bad.sum()),
             "days": df.shift_date.nunique(),
@@ -238,7 +317,7 @@ def create_app(plant: Plant) -> FastAPI:
 
     @app.get("/api/machines")
     def machines():
-        return {"now": _clean(plant.now()), "machines": plant.machines()}
+        return {"machines": plant.machines()}
 
     @app.get("/api/machines/{machine_id}/history")
     def machine_history(machine_id: str):
@@ -285,7 +364,7 @@ def create_app(plant: Plant) -> FastAPI:
         hit = df[df.part_id == part_id]
         if hit.empty:
             raise HTTPException(404, "unknown part")
-        return plant.part(hit.iloc[-1].to_dict())
+        return plant.inspect(hit.iloc[-1].to_dict())  # runs the model if the part was not inspected yet
 
     @app.get("/api/samples/{k}/{i}")
     def image(k: int, i: int):

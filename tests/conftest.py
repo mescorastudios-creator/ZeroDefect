@@ -38,6 +38,6 @@ def demo_data(tmp_path_factory) -> Path:
     mp.setenv("ZERODEFECT_DATA_ROOT", str(root))
     from ml.datasets import demo
 
-    demo.generate(size=64, train_good=2, test_good=3, test_per_defect=1)
+    demo.generate(size=64, train_good=2, train_per_defect=1, test_good=3, test_per_defect=1)
     mp.undo()
     return root
