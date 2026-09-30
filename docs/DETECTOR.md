@@ -65,8 +65,39 @@ ONNX by default (`--format openvino` also works once OpenVINO is installed). The
 
 ## Results
 
-| Run | Where | Data | Model | Epochs | Test mAP50 | Test mAP50-95 |
-|---|---|---|---|---|---|---|
-| `smoke` | CPU, 3 min | 5% of train | YOLO26n, 512 px | 1 | — (pipeline check only) | — |
+### CPU baseline (2026-09-30)
 
-Real numbers come from the GPU run in the notebook (YOLO26s, 1024 px).
+`cpu_baseline`: YOLO26n, 512 px, trained for 1.5 hours on this 4-core CPU (5 epochs; `--time 1.5 --set close_mosaic=2`) on the `polymer` build. It shows that the pipeline learns; it is not the model to use. The GPU run (YOLO26s, 1024 px, up to 100 epochs) should beat it clearly.
+
+| | Val | Test |
+|---|---|---|
+| mAP50 | 0.624 | 0.542 |
+| mAP50-95 | 0.310 | 0.263 |
+| Precision / recall | 0.737 / 0.562 | 0.704 / 0.500 |
+
+| Test, per class | Boxes | Precision | Recall | mAP50 | mAP50-95 |
+|---|---|---|---|---|---|
+| contamination | 311 | 0.78 | 0.62 | 0.69 | 0.39 |
+| missing_material | 390 | 0.67 | 0.64 | 0.65 | 0.33 |
+| deformation | 15 | 0.85 | 0.39 | 0.64 | 0.20 |
+| crack | 91 | 0.64 | 0.64 | 0.62 | 0.27 |
+| scratch | 264 | 0.63 | 0.58 | 0.59 | 0.32 |
+| pit_void | 168 | 0.34 | 0.64 | 0.59 | 0.32 |
+| paint_finish | 18 | — | 0.00 | 0.02 | 0.01 |
+
+`paint_finish` (paint sags) is not learned yet: the boxes are large, faint regions with vague edges, from only 134 original images, and after 5 epochs the model finds them at confidence ≈ 0.06 only. Labels were checked visually and are correct.
+
+**Pass/fail on the line** (test set, confidence ≥ 0.25). Image-level AUROC of the strongest box: **0.92**.
+
+| | Good | Defective | False-reject rate | Escape rate |
+|---|---|---|---|---|
+| per image | 6,999 | 1,192 | 6.7% | 25.3% |
+| per part, fails if ≥ 1 view fails | 1,258 | 432 | 25.5% | 12.7% |
+| per part, ≥ 2 views | 1,258 | 432 | 3.4% | 33.6% |
+| per part, ≥ 3 views | 1,258 | 432 | 0.3% | 58.3% |
+
+Real-IAD parts only, at other thresholds (≥ 1 view / ≥ 2 views): confidence 0.1 → false rejects 57% / 18%, escapes 2% / 16%; confidence 0.5 → false rejects 2% / 0%, escapes 22% / 55%.
+
+The multi-view vote trades false rejects against escapes, as expected, but no setting of this baseline is good enough for a line on its own. The next steps are the GPU model and fusion with PatchCore (stage 5), which also sees defect types the detector does not know.
+
+Speed: 32 ms per 512 px image with PyTorch on this CPU; 19 ms with the ONNX export.
