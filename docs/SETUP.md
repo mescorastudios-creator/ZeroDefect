@@ -13,7 +13,7 @@ Do these once, before milestone M0. Never paste keys or tokens into the chat; st
 2. Open https://huggingface.co/datasets/Real-IAD/Real-IAD while logged in.
 3. Fill in the short access form at the top of the page and accept the terms (research use only). Approval is automatic.
 4. Go to https://huggingface.co/settings/tokens → **Create new token** → token type **Read** → name it `zerodefect` → **Create token**.
-5. Copy the token (it starts with `hf_`). You will paste it into the environment settings in Step 5.
+5. Copy the whole token. It starts with `hf_` and is 37 characters long; a shorter value is a partial copy and Hugging Face will reject it. You will paste it into the environment settings in Step 5.
 
 ## 2. Roboflow API key (PaintDefect dataset)
 

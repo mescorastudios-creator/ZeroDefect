@@ -218,6 +218,13 @@ The estimate covers **my build time**: writing, testing and debugging the code i
 
 For comparison, one developer building this without AI assistance would typically need **4–6 months**.
 
+### Progress
+
+| # | Status | Notes |
+|---|---|---|
+| M0 | ✅ Done (2026-09-30) | Taxonomy (`configs/taxonomy.yaml`), converters for all 4 sources into one manifest + COCO format ([DATASETS.md](DATASETS.md)), production simulator with 4 planted faults, and a virtual camera ([SIMULATOR.md](SIMULATOR.md)). There is also a procedural demo dataset, so everything runs offline, plus CI and 42 tests. MVTec AD is downloaded and verified. **Open:** the Real-IAD download is blocked until `HF_TOKEN` is fixed (see SETUP.md, step 1). |
+| M1 | Next | Needs Real-IAD `plastic_nut` for the first real demo; can start on MVTec AD `screw`/`metal_nut` meanwhile. |
+
 ---
 
 ## 9. What I need from you before M0
@@ -236,7 +243,7 @@ Step-by-step instructions are in **[docs/SETUP.md](SETUP.md)**. In short:
 
 | Risk | Mitigation |
 |---|---|
-| Real-IAD is large (high-res, 5 views) | Download only the polymer classes; resize to 1024 px during conversion |
+| Real-IAD is large (high-res, 5 views) | Download only the polymer classes, using the pre-resized 512 px copy (≈2.3 GB) for CPU work and 1024 px (≈8.8 GB) for detector training |
 | Datasets use different label formats | One converter per source into a single internal format (COCO + masks + taxonomy mapping) |
 | Traceability metadata is not real | Transparent simulator with planted faults; the report states this clearly; the schema accepts real MES data unchanged |
 | No physical camera line | Virtual camera replays the datasets at line speed; a webcam/RTSP/video file also works for a live demo |
