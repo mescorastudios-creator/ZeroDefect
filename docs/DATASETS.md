@@ -40,7 +40,7 @@ uv run python -m ml.datasets stats                         # counts per source/c
 - **Important for the M2 ablation:** the changing-lighting test sets (`test_private`, `test_private_mixed`) ship **without ground truth**. They are scored on the MVTec benchmark server (https://benchmark.mvtec.com/). Local lighting-robustness numbers therefore need either that server or lighting perturbations applied to `test_public`.
 
 ### PaintDefect (supervised defect types, painted plastic)
-- **Download:** `download paintdefect [--version N]`. Uses the Roboflow REST API with `ROBOFLOW_API_KEY` and fetches the COCO export (latest version by default). Check the license on the dataset page first.
+- **Download:** `download paintdefect [--version N]`. Uses the Roboflow REST API with `ROBOFLOW_API_KEY` and fetches the COCO export (latest version by default). License CC BY 4.0: academic and commercial use allowed, with credit to the dataset authors.
 - **Converted:** one category, `painted_panel`. Boxes are kept as they are. The image-level class is the image's most frequent defect class, and all boxes go into `coco.json`.
 - Labels missing from the taxonomy make conversion fail with the list of labels, so that no label is silently dropped.
 

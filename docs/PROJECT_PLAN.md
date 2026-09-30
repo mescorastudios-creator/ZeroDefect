@@ -29,7 +29,7 @@ No single public dataset covers polymer car parts **and** production metadata, s
 |---|---|---|---|---|
 | **Real-IAD** (CVPR 2024) | **Main dataset.** Real plastic/rubber industrial parts, including `plastic_nut`, `plastic_plug`, `end_cap`, `u_block` and `mounts`. Each part is shot from **5 camera angles**, which gives us real data for the multi-view / temporal-consistency stage. | 30 object classes, ~150K high-res images | Good/defect + pixel masks. 8 defect families: pit, deformation, abrasion, scratch, damage, missing parts, foreign object, contamination | CC BY-NC-SA 4.0. Gated: you request access, then download. We only download the polymer classes. |
 | **MVTec AD 2** (2025) | Robustness to lighting. Its `wallplugs` class is a polymer part, and its test sets are captured under **changing lighting**. | 8 scenarios, 8K+ images | Pixel masks | CC BY-NC-SA 4.0 |
-| **PaintDefect** (Roboflow Universe) | **Fine-grained, supervised defect types on painted plastic car parts** | Paint defects on moulded plastic car parts | Bounding boxes: scratch, dent, bump, dust, fibre | Check the license on the dataset page before use |
+| **PaintDefect** (Roboflow Universe) | **Fine-grained, supervised defect types on painted plastic car parts** | Paint defects on moulded plastic car parts | Bounding boxes: scratch, dent, bump, dust, fibre | CC BY 4.0 (credit the authors) |
 | **MVTec AD** (`screw`, `metal_nut`) | Nut-bolt extension from the abstract | 15 classes, 5.3K images | Pixel masks | CC BY-NC-SA 4.0 |
 
 ### 2.2 Optional / later

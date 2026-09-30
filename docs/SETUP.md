@@ -19,7 +19,7 @@ Do these once, before milestone M0. Never paste keys or tokens into the chat; st
 
 1. Sign up for free at https://app.roboflow.com.
 2. Open your workspace **Settings** → **API Keys** and copy the **Private API Key**.
-3. Open https://universe.roboflow.com/ai-klghd/paintdefect-8h4s4 and note the **License** shown on the page. Tell Claude what it says.
+3. Open https://universe.roboflow.com/ai-klghd/paintdefect-8h4s4 and note the **License** shown on the page. (Checked: CC BY 4.0.)
 
 ## 3. MVTec AD 2 (lighting-robustness dataset)
 

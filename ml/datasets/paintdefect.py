@@ -4,7 +4,7 @@ Downloaded as a Roboflow COCO export (``data/raw/paintdefect/v<N>``)::
 
     {train,valid,test}/_annotations.coco.json + images
 
-Needs ``ROBOFLOW_API_KEY``. Check the license on the dataset page before use:
+Needs ``ROBOFLOW_API_KEY``. License CC BY 4.0 (credit the authors):
 https://universe.roboflow.com/ai-klghd/paintdefect-8h4s4
 """
 
