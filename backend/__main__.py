@@ -6,12 +6,26 @@ uv run python -m backend --speed 10      # simulated time runs 10x faster than r
 
 import argparse
 import logging
+import socket
+import threading
+import time
 import webbrowser
 
 import uvicorn
 
 from backend.app import Plant, create_app
 from inspection.paths import data_root
+
+
+def _open_when_ready(url: str, port: int) -> None:
+    """Open the browser only once the server accepts connections."""
+    for _ in range(300):
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=0.5).close()
+            webbrowser.open(url)
+            return
+        except OSError:
+            time.sleep(0.2)
 
 
 def main(argv=None) -> None:
@@ -37,7 +51,7 @@ def main(argv=None) -> None:
     url = f"http://127.0.0.1:{args.port}"
     print(f"ZeroDefect is running at {url}  (Ctrl+C to stop)")
     if not args.no_browser:
-        webbrowser.open(url)
+        threading.Thread(target=_open_when_ready, args=(url, args.port), daemon=True).start()
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning", timeout_graceful_shutdown=1)
 
 
